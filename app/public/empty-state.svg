@@ -1,0 +1,16 @@
+<svg width="300" height="240" viewBox="0 0 300 240" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="300" height="240" rx="12" fill="#F1F3F0"/>
+    <ellipse cx="150" cy="200" rx="80" ry="15" fill="#D9E2D7" opacity="0.5"/>
+    <path d="M100 180 Q100 130 150 130 Q200 130 200 180" stroke="#95A893" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M120 180 Q120 145 150 145 Q180 145 180 180" stroke="#95A893" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="90" cy="160" r="8" fill="#D8F3DC"/>
+    <circle cx="210" cy="150" r="6" fill="#D8F3DC"/>
+    <circle cx="80" cy="140" r="5" fill="#D8F3DC" opacity="0.6"/>
+    <circle cx="220" cy="170" r="7" fill="#D8F3DC" opacity="0.5"/>
+    <path d="M150 110 Q160 90 175 100 Q165 115 150 110Z" fill="#52B788" opacity="0.4"/>
+    <path d="M140 105 Q130 85 115 95 Q125 110 140 105Z" fill="#52B788" opacity="0.3"/>
+    <circle cx="150" cy="125" r="4" fill="#95A893"/>
+    <path d="M146 125 L146 118" stroke="#95A893" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+</svg>

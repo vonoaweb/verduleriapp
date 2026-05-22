@@ -1,0 +1,168 @@
+// ===========================================
+// VerduleriApp - Schema de Base de Datos
+// ===========================================
+// Prisma ORM con Supabase PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// ─── USUARIOS ────────────────────────────────────
+// Todos los usuarios: clientes, vendedores, admins
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String
+  phone         String?
+  role          Role     @default(CUSTOMER)
+  avatarUrl     String?  @map("avatar_url")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  vendor        Vendor?
+  quotes        Quote[]  // Cotizaciones hechas como cliente
+
+  @@map("users")
+}
+
+// ─── VENDEDORES ──────────────────────────────────
+// Perfil de negocio del vendedor
+enum VendorStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Vendor {
+  id            String       @id @default(cuid())
+  userId        String       @unique @map("user_id")
+  businessName  String       @map("business_name")
+  description   String?
+  address       String?
+  whatsapp      String       // Numero de WhatsApp para cotizaciones
+  coverImageUrl String?      @map("cover_image_url")
+  status        VendorStatus @default(PENDING)
+  rating        Float        @default(0)
+  totalSales    Int          @default(0) @map("total_sales")
+  categories    String[]     // Categorias que vende
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relaciones
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products      Product[]
+  quoteItems    QuoteItem[]
+
+  @@map("vendors")
+}
+
+// ─── PRODUCTOS ───────────────────────────────────
+enum ProductCategory {
+  FRUIT
+  VEGETABLE
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  vendorId    String          @map("vendor_id")
+  name        String
+  category    ProductCategory
+  price       Float
+  unit        String          // kg, unidad, libra, bandeja
+  description String?
+  imageUrl    String?         @map("image_url")
+  status      ProductStatus   @default(ACTIVE)
+  featured    Boolean         @default(false)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relaciones
+  vendor      Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  quoteItems  QuoteItem[]
+  images      ProductImage[]
+
+  @@index([vendorId])
+  @@index([category])
+  @@index([status])
+  @@map("products")
+}
+
+// ─── IMAGENES DE PRODUCTO ─────────────────────────
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  url       String
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+// ─── COTIZACIONES ────────────────────────────────
+enum QuoteStatus {
+  PENDING
+  RESPONDED
+  COMPLETED
+  CANCELLED
+}
+
+model Quote {
+  id            String      @id @default(cuid())
+  userId        String?     @map("user_id") // Null si es cliente anonimo
+  customerName  String      @map("customer_name")
+  customerPhone String      @map("customer_phone")
+  customerEmail String?     @map("customer_email")
+  status        QuoteStatus @default(PENDING)
+  total         Float       @default(0)
+  notes         String?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relaciones
+  user          User?       @relation(fields: [userId], references: [id])
+  items         QuoteItem[]
+
+  @@index([status])
+  @@index([userId])
+  @@map("quotes")
+}
+
+// ─── ITEMS DE COTIZACION ─────────────────────────
+model QuoteItem {
+  id        String @id @default(cuid())
+  quoteId   String @map("quote_id")
+  productId String @map("product_id")
+  vendorId  String @map("vendor_id")
+  quantity  Float
+  price     Float  // Precio al momento de cotizar
+  unit      String
+
+  // Relaciones
+  quote     Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  vendor    Vendor  @relation(fields: [vendorId], references: [id])
+
+  @@map("quote_items")
+}
