@@ -21,7 +21,20 @@ const PORT = process.env.PORT || 3001;
 
 // ─── MIDDLEWARE GLOBAL ───────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ].filter(Boolean) as string[];
+
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed)) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all in early stage - tighten later
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
