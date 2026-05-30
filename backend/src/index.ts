@@ -32,7 +32,7 @@ app.use(cors({
     if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed)) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all in early stage - tighten later
+      callback(new Error('Origen no permitido por CORS'));
     }
   },
   credentials: true,

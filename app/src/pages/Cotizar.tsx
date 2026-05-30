@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { productsApi, type ApiProduct } from '@/api/products';
+import { quotesApi } from '@/api/quotes';
 
 interface CartItem {
   product: ApiProduct;
@@ -134,6 +135,8 @@ export default function Cotizar() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     productsApi.list({ limit: 100 })
@@ -181,30 +184,64 @@ export default function Cotizar() {
     setCart((prev) => prev.filter((c) => c.product.id !== id));
   };
 
-  const generateWhatsappMessage = () => {
-    const lines = [
-      `Hola! Soy ${customerName || 'un cliente'}.`,
-      `Me gustaria cotizar los siguientes productos:`,
-      '',
-      ...cart.map(
-        (item) =>
-          `- ${item.product.name} x ${item.quantity} ${item.product.unit} ($${(item.product.price * item.quantity).toLocaleString('es-CO')})`
-      ),
-      '',
-      `Total estimado: $${cartTotal.toLocaleString('es-CO')}`,
-    ];
-    if (customerPhone) lines.push(`Mi telefono: ${customerPhone}`);
-    if (notes) lines.push(`Nota: ${notes}`);
-    lines.push('', 'Enviado desde VerduleriApp');
-    return encodeURIComponent(lines.join('\n'));
-  };
+  const handleSendWhatsapp = async () => {
+    if (cart.length === 0 || submitting) return;
+    setErrorMsg('');
 
-  const handleSendWhatsapp = () => {
-    if (cart.length === 0) return;
-    // Use the first product's vendor WhatsApp, or a default number
-    const vendorPhone = cart[0]?.product.vendor?.whatsapp?.replace(/[^0-9]/g, '') || '';
-    const msg = generateWhatsappMessage();
-    window.open(`https://wa.me/${vendorPhone}?text=${msg}`, '_blank');
+    // Validaciones (el backend exige nombre y teléfono)
+    if (customerName.trim().length < 2) {
+      setErrorMsg('Por favor ingresa tu nombre.');
+      return;
+    }
+    if (customerPhone.replace(/[^0-9]/g, '').length < 8) {
+      setErrorMsg('Por favor ingresa un teléfono válido (mínimo 8 dígitos).');
+      return;
+    }
+
+    // Abrir la ventana ANTES del await para evitar el bloqueo de popups
+    const waWindow = window.open('', '_blank');
+
+    setSubmitting(true);
+    try {
+      // Guardar la cotización en la base de datos.
+      // El backend agrupa por vendedor y devuelve un link de WhatsApp por cada uno.
+      const result = await quotesApi.create({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        notes: notes.trim() || undefined,
+        items: cart.map((item) => ({
+          productId: item.product.id,
+          vendorId: item.product.vendorId,
+          quantity: item.quantity,
+          price: item.product.price,
+          unit: item.product.unit,
+        })),
+      });
+
+      const links = result.whatsappLinks ?? [];
+
+      if (links.length > 0 && waWindow) {
+        // Abrir el primer vendedor en la ventana ya abierta
+        waWindow.location.href = links[0].link;
+        // Si hay más vendedores, abrir el resto en pestañas adicionales
+        for (let i = 1; i < links.length; i++) {
+          window.open(links[i].link, '_blank');
+        }
+      } else if (waWindow) {
+        waWindow.close();
+      }
+
+      // Limpiar el carrito tras enviar
+      setCart([]);
+      setNotes('');
+    } catch (err) {
+      if (waWindow) waWindow.close();
+      setErrorMsg(
+        err instanceof Error ? err.message : 'No se pudo enviar la cotización. Intenta de nuevo.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -301,7 +338,7 @@ export default function Cotizar() {
                   type="tel"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Tu telefono (opcional)"
+                  placeholder="Tu telefono"
                   className="w-full pl-9 pr-4 py-2.5 bg-[#FAFAF5] border border-[#D9E2D7] rounded-xl text-sm text-[#2B3A29] placeholder:text-[#95A893] focus:outline-none focus:border-[#2D6A4F] focus:ring-[3px] focus:ring-[#2D6A4F]/15 transition-all"
                 />
               </div>
@@ -354,19 +391,35 @@ export default function Cotizar() {
               </div>
             )}
 
+            {/* Error message */}
+            {errorMsg && (
+              <p className="text-sm text-[#E63946] bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-3">
+                {errorMsg}
+              </p>
+            )}
+
             {/* Send button */}
             <button
               onClick={handleSendWhatsapp}
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || submitting}
               className={cn(
                 'w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 shadow-md',
-                cart.length > 0
+                cart.length > 0 && !submitting
                   ? 'bg-[#25D366] hover:bg-[#128C7E] hover:-translate-y-0.5'
                   : 'bg-gray-300 cursor-not-allowed'
               )}
             >
-              <Send className="w-4 h-4" />
-              Enviar cotizacion por WhatsApp
+              {submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Enviar cotizacion por WhatsApp
+                </>
+              )}
             </button>
           </div>
         </div>

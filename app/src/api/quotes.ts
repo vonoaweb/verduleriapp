@@ -40,6 +40,10 @@ export interface QuoteStats {
   monthlyRevenue: number;
 }
 
+export interface CreateQuoteResponse extends ApiQuote {
+  whatsappLinks: Array<{ vendorName: string; link: string }>;
+}
+
 export const quotesApi = {
   create(data: {
     customerName: string;
@@ -53,7 +57,7 @@ export const quotesApi = {
       price: number;
       unit: string;
     }>;
-  }): Promise<ApiQuote> {
+  }): Promise<CreateQuoteResponse> {
     return api.post('/quotes', data);
   },
 

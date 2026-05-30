@@ -4,8 +4,32 @@ import type { CreateQuoteInput } from '../types/index.js';
 
 // ─── CREAR COTIZACIÓN ────────────────────────────
 export async function createQuote(input: CreateQuoteInput, userId?: string) {
-  // Calcular total
-  const total = input.items.reduce(
+  // Validar productos y usar el precio REAL de la base de datos
+  // (nunca confiar en el precio que envía el cliente)
+  const productIds = [...new Set(input.items.map(i => i.productId))];
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds }, status: 'ACTIVE' },
+    select: { id: true, price: true, unit: true, vendorId: true },
+  });
+  const productMap = new Map(products.map(p => [p.id, p]));
+
+  // Construir items con precios verificados
+  const validatedItems = input.items.map(item => {
+    const product = productMap.get(item.productId);
+    if (!product) {
+      throw new AppError(400, `Producto no disponible: ${item.productId}`);
+    }
+    return {
+      productId: product.id,
+      vendorId: product.vendorId, // vendedor real del producto, no el del cliente
+      quantity: item.quantity,
+      price: product.price,        // precio real de la BD
+      unit: product.unit,          // unidad real de la BD
+    };
+  });
+
+  // Calcular total con precios verificados
+  const total = validatedItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
@@ -19,13 +43,7 @@ export async function createQuote(input: CreateQuoteInput, userId?: string) {
       notes: input.notes,
       total,
       items: {
-        create: input.items.map(item => ({
-          productId: item.productId,
-          vendorId: item.vendorId,
-          quantity: item.quantity,
-          price: item.price,
-          unit: item.unit,
-        })),
+        create: validatedItems,
       },
     },
     include: {
@@ -81,8 +99,17 @@ export async function listQuotes(filters: {
     prisma.quote.count({ where }),
   ]);
 
+  // Si es vendedor, recalcular el total de cada cotización
+  // usando SOLO sus propios items (no los de otros vendedores)
+  const adjustedQuotes = vendorId
+    ? quotes.map(q => ({
+        ...q,
+        total: q.items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+      }))
+    : quotes;
+
   return {
-    quotes,
+    quotes: adjustedQuotes,
     pagination: {
       page,
       limit,
@@ -157,16 +184,33 @@ export async function getQuoteStats(vendorId?: string) {
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const monthlyQuotes = await prisma.quote.findMany({
-    where: {
-      ...where,
-      status: 'COMPLETED',
-      createdAt: { gte: startOfMonth },
-    },
-    select: { total: true },
-  });
+  let monthlyRevenue: number;
 
-  const monthlyRevenue = monthlyQuotes.reduce((sum, q) => sum + q.total, 0);
+  if (vendorId) {
+    // Vendedor: sumar SOLO sus items de cotizaciones completadas del mes
+    const items = await prisma.quoteItem.findMany({
+      where: {
+        vendorId,
+        quote: {
+          status: 'COMPLETED',
+          createdAt: { gte: startOfMonth },
+        },
+      },
+      select: { price: true, quantity: true },
+    });
+    monthlyRevenue = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  } else {
+    // Admin: total completo de cotizaciones completadas del mes
+    const monthlyQuotes = await prisma.quote.findMany({
+      where: {
+        ...where,
+        status: 'COMPLETED',
+        createdAt: { gte: startOfMonth },
+      },
+      select: { total: true },
+    });
+    monthlyRevenue = monthlyQuotes.reduce((sum, q) => sum + q.total, 0);
+  }
 
   return {
     total,

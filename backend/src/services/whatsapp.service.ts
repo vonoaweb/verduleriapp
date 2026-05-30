@@ -24,7 +24,7 @@ export function generateWhatsAppLink(data: QuoteMessage): string {
   const phone = data.vendorWhatsapp.replace(/[^0-9]/g, '');
 
   const itemLines = data.items.map((item, i) =>
-    `${i + 1}. ${item.name} - ${item.quantity} ${item.unit} x $${item.price.toLocaleString('es-CL')} = $${(item.quantity * item.price).toLocaleString('es-CL')}`
+    `${i + 1}. ${item.name} - ${item.quantity} ${item.unit} x $${item.price.toLocaleString('es-CO')} = $${(item.quantity * item.price).toLocaleString('es-CO')}`
   ).join('\n');
 
   const message = [
@@ -37,7 +37,7 @@ export function generateWhatsAppLink(data: QuoteMessage): string {
     `🛒 *Productos:*`,
     itemLines,
     ``,
-    `💰 *Total: $${data.total.toLocaleString('es-CL')}*`,
+    `💰 *Total: $${data.total.toLocaleString('es-CO')}*`,
     data.notes ? `\n📝 Nota: ${data.notes}` : '',
     ``,
     `_Cotización generada por VerduleriApp_`,
@@ -66,7 +66,7 @@ export async function sendWhatsAppMessage(data: QuoteMessage): Promise<{ success
     const phone = data.vendorWhatsapp.replace(/[^0-9]/g, '');
 
     const itemText = data.items.map((item, i) =>
-      `${i + 1}. ${item.name} - ${item.quantity} ${item.unit} x $${item.price.toLocaleString('es-CL')}`
+      `${i + 1}. ${item.name} - ${item.quantity} ${item.unit} x $${item.price.toLocaleString('es-CO')}`
     ).join('\n');
 
     const response = await fetch(
@@ -91,7 +91,7 @@ export async function sendWhatsAppMessage(data: QuoteMessage): Promise<{ success
                   { type: 'text', text: data.customerName },
                   { type: 'text', text: data.quoteId },
                   { type: 'text', text: itemText },
-                  { type: 'text', text: `$${data.total.toLocaleString('es-CL')}` },
+                  { type: 'text', text: `$${data.total.toLocaleString('es-CO')}` },
                 ],
               },
             ],
