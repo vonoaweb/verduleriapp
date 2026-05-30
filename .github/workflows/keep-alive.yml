@@ -1,0 +1,30 @@
+name: Keep Backend Awake
+
+# Mantiene el backend de Render despierto para que el bot de WhatsApp
+# responda al instante (Render gratis se duerme tras 15 min de inactividad).
+
+on:
+  schedule:
+    # Cada 10 minutos (Render se duerme a los 15 min)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          echo "Despertando backend..."
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 \
+              https://verduleriapp-api.onrender.com/api/health || echo "000")
+            echo "Intento $i -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "✅ Backend despierto y respondiendo"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "⚠️ No respondió 200, pero el ping pudo haberlo despertado igual"
+          exit 0
