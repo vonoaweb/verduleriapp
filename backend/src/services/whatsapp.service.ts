@@ -125,6 +125,43 @@ export async function sendWhatsAppMessage(data: QuoteMessage): Promise<{ success
   }
 }
 
+// ─── Enviar mensaje de texto libre (para el bot) ──
+// Usa la WhatsApp Cloud API. Requiere WHATSAPP_PHONE_ID y WHATSAPP_ACCESS_TOKEN.
+export async function sendTextMessage(to: string, text: string): Promise<boolean> {
+  if (!WHATSAPP_PHONE_ID || !WHATSAPP_ACCESS_TOKEN) {
+    console.warn('⚠️ WhatsApp Cloud API no configurada — no se pudo enviar el mensaje');
+    return false;
+  }
+
+  const phone = to.replace(/[^0-9]/g, '');
+
+  try {
+    const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: phone,
+        type: 'text',
+        text: { body: text },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Error enviando WhatsApp:', response.status, await response.text());
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error enviando WhatsApp:', error);
+    return false;
+  }
+}
+
 // ─── Webhook para recibir respuestas de WhatsApp ──
 export function verifyWebhook(mode: string, token: string, challenge: string): string | null {
   const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'verduleriapp-webhook-token';

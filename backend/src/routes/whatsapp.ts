@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { verifyWebhook, processWebhookEntry, type WhatsAppWebhookEntry } from '../services/whatsapp.service.js';
+import { verifyWebhook } from '../services/whatsapp.service.js';
+import { handleIncomingMessage } from '../services/bot.service.js';
 
 const router = Router();
 
@@ -18,17 +19,33 @@ router.get('/webhook', (req: Request, res: Response) => {
   }
 });
 
-// POST /api/whatsapp/webhook — Recibir mensajes/estados
+// POST /api/whatsapp/webhook — Recibir mensajes entrantes
 router.post('/webhook', (req: Request, res: Response) => {
   const body = req.body;
 
-  if (body.object === 'whatsapp_business_account') {
-    for (const entry of body.entry || []) {
-      processWebhookEntry(entry as WhatsAppWebhookEntry);
+  // Responder 200 de inmediato (Meta exige respuesta rápida)
+  res.status(200).send('OK');
+
+  if (body.object !== 'whatsapp_business_account') return;
+
+  // Procesar los mensajes de forma asíncrona (no bloquear la respuesta)
+  for (const entry of body.entry || []) {
+    for (const change of entry.changes || []) {
+      const messages = change.value?.messages;
+      if (!messages) continue;
+
+      for (const msg of messages) {
+        // Solo procesar mensajes de texto
+        if (msg.type === 'text' && msg.text?.body) {
+          const phone = msg.from as string;
+          const text = msg.text.body as string;
+
+          handleIncomingMessage(phone, text).catch(err =>
+            console.error('Error procesando mensaje del bot:', err),
+          );
+        }
+      }
     }
-    res.status(200).send('OK');
-  } else {
-    res.status(404).send('Not Found');
   }
 });
 

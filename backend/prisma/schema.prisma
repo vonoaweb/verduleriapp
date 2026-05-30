@@ -149,6 +149,19 @@ model Quote {
   @@map("quotes")
 }
 
+// ─── CONVERSACIONES DEL BOT DE WHATSAPP ──────────
+// Guarda el historial de cada chat para que el bot recuerde el contexto
+model BotConversation {
+  id        String   @id @default(cuid())
+  phone     String   @unique // Numero del cliente en WhatsApp
+  messages  Json     @default("[]") // Historial [{role, text}]
+  lastQuote String?  @map("last_quote") // ID de la ultima cotizacion generada
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bot_conversations")
+}
+
 // ─── ITEMS DE COTIZACION ─────────────────────────
 model QuoteItem {
   id        String @id @default(cuid())
