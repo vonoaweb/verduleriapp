@@ -164,7 +164,7 @@ export async function sendTextMessage(to: string, text: string): Promise<boolean
 
 // ─── Webhook para recibir respuestas de WhatsApp ──
 export function verifyWebhook(mode: string, token: string, challenge: string): string | null {
-  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'verduleriapp-webhook-token';
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'verduleriapp-bot-2026';
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     return challenge;
