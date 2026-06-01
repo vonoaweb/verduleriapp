@@ -5,8 +5,8 @@ name: Keep Backend Awake
 
 on:
   schedule:
-    # Cada 10 minutos (Render se duerme a los 15 min)
-    - cron: '*/10 * * * *'
+    # Cada 5 minutos (Render se duerme a los 15 min) - menos hueco = más confiable
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
 
 jobs:
