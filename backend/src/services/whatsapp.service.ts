@@ -133,7 +133,14 @@ export async function sendTextMessage(to: string, text: string): Promise<boolean
     return false;
   }
 
-  const phone = to.replace(/[^0-9]/g, '');
+  let phone = to.replace(/[^0-9]/g, '');
+  // México (+52) y Argentina (+54): el wa_id que entrega el webhook incluye
+  // un dígito extra (521.../549...) que la API de envío rechaza. Lo quitamos.
+  if (phone.startsWith('521') && phone.length === 13) {
+    phone = '52' + phone.slice(3);
+  } else if (phone.startsWith('549') && phone.length === 13) {
+    phone = '54' + phone.slice(3);
+  }
 
   try {
     const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
