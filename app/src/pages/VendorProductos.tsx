@@ -82,15 +82,17 @@ function ProductCard({
         <div className="absolute top-3 right-3 flex gap-1">
           <button
             onClick={() => onEdit(product.id)}
-            className="w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors opacity-0 group-hover:opacity-100 duration-200"
+            className="w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/40 duration-200"
             title="Editar"
+            aria-label={`Editar ${product.name}`}
           >
             <Pencil className="w-4 h-4 text-[#5C6F5A]" />
           </button>
           <button
             onClick={() => onDelete(product.id)}
-            className="w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors opacity-0 group-hover:opacity-100 duration-200"
+            className="w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#E63946]/40 duration-200"
             title="Eliminar"
+            aria-label={`Eliminar ${product.name}`}
           >
             <Trash2 className="w-4 h-4 text-[#E63946]" />
           </button>
@@ -132,8 +134,12 @@ function ProductCard({
           </div>
           <button
             onClick={() => onToggleStatus(product.id, product.status)}
+            role="switch"
+            aria-checked={product.status === 'ACTIVE'}
+            aria-label={`${product.status === 'ACTIVE' ? 'Pausar' : 'Activar'} ${product.name}`}
+            title={product.status === 'ACTIVE' ? 'Pausar (ocultar del catálogo)' : 'Activar'}
             className={cn(
-              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200',
+              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/40',
               product.status === 'ACTIVE' ? 'bg-[#52B788]' : 'bg-[#D9E2D7]'
             )}
           >

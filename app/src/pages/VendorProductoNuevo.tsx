@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera,
@@ -87,8 +87,11 @@ function SuccessScreen({ isEdit = false }: { isEdit?: boolean }) {
 /* ─── main component ─── */
 export default function VendorProductoNuevo() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
+  // Regresar al panel correcto según el contexto (admin o vendedor)
+  const listPath = location.pathname.startsWith('/admin') ? '/admin/productos' : '/vendedor/productos';
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [isDragging, setIsDragging] = useState(false);
@@ -167,7 +170,7 @@ export default function VendorProductoNuevo() {
 
       setShowSuccess(true);
       setTimeout(() => {
-        navigate('/vendedor/productos');
+        navigate(listPath);
       }, 1500);
     } catch (err: any) {
       alert(err.message || (isEdit ? 'Error al guardar los cambios' : 'Error al crear el producto'));
@@ -276,7 +279,7 @@ export default function VendorProductoNuevo() {
         className="mb-6"
       >
         <button
-          onClick={() => navigate('/vendedor/productos')}
+          onClick={() => navigate(listPath)}
           className="inline-flex items-center gap-1 text-sm text-[#5C6F5A] hover:text-[#2B3A29] transition-colors mb-3"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -573,7 +576,7 @@ export default function VendorProductoNuevo() {
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-[#F1F3F0]">
               <button
                 type="button"
-                onClick={() => navigate('/vendedor/productos')}
+                onClick={() => navigate(listPath)}
                 className="flex-1 py-3 rounded-xl text-sm font-medium text-[#5C6F5A] hover:bg-[#F1F3F0] transition-all border border-transparent hover:border-[#D9E2D7]"
               >
                 Cancelar

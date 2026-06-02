@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -6,6 +7,7 @@ import {
   CheckCircle,
   EyeOff,
   Ban,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { productsApi, type ApiProduct } from '@/api/products';
@@ -17,6 +19,7 @@ const statusTabs = [
 ] as const;
 
 export default function Productos() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -151,19 +154,33 @@ export default function Productos() {
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-center">
-                      <button
-                        onClick={() => handleToggleStatus(p.id, p.status)}
-                        className={cn(
-                          'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-                          p.status === 'ACTIVE' ? 'bg-[#52B788]' : 'bg-[#D9E2D7]'
-                        )}
-                      >
-                        <span className={cn(
-                          'inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform shadow-sm',
-                          p.status === 'ACTIVE' ? 'translate-x-4.5' : 'translate-x-0.5'
-                        )} />
-                      </button>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          onClick={() => navigate(`/admin/productos/${p.id}/editar`)}
+                          title="Editar producto"
+                          aria-label={`Editar ${p.name}`}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-[#2D6A4F] hover:bg-[#D8F3DC] focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/40 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(p.id, p.status)}
+                          role="switch"
+                          aria-checked={p.status === 'ACTIVE'}
+                          aria-label={`${p.status === 'ACTIVE' ? 'Desactivar' : 'Activar'} ${p.name}`}
+                          title={p.status === 'ACTIVE' ? 'Pausar (ocultar del catálogo)' : 'Activar'}
+                          className={cn(
+                            'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]/40',
+                            p.status === 'ACTIVE' ? 'bg-[#52B788]' : 'bg-[#D9E2D7]'
+                          )}
+                        >
+                          <span className={cn(
+                            'inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform shadow-sm',
+                            p.status === 'ACTIVE' ? 'translate-x-4.5' : 'translate-x-0.5'
+                          )} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
