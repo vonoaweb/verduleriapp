@@ -197,6 +197,23 @@ export default function Cotizaciones() {
                         <span className="text-sm font-bold text-[#E76F51]">
                           ${q.total.toLocaleString('es-CO')}
                         </span>
+                        <div className="mt-1">
+                          {q.paymentStatus === 'PAID' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#D8F3DC] text-[#2D6A4F]">
+                              ✓ Pagado
+                            </span>
+                          ) : (
+                            <a
+                              href={`/pago/${q.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Abrir página de pago"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#F4A261]/20 text-[#E76F51] hover:bg-[#F4A261]/30 transition-colors"
+                            >
+                              Cobrar →
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3 text-center">
                         <span className={cn('inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium', st.className)}>

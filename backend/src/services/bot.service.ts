@@ -9,6 +9,7 @@ import { sendTextMessage } from './whatsapp.service.js';
 
 const MAX_HISTORY = 20; // Cuántos mensajes recordar por conversación
 const OWNER_WHATSAPP = process.env.OWNER_WHATSAPP; // Número del dueño para avisarle de pedidos nuevos
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://verduleriapp.vercel.app'; // Para el link de pago
 
 // Obtiene el catálogo activo en tiempo real desde la BD
 async function getLiveCatalog(): Promise<CatalogProduct[]> {
@@ -45,6 +46,7 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
 
   // 5. Si la IA detectó una cotización confirmada, guardarla en la BD
   let lastQuoteId = conversation?.lastQuote ?? null;
+  let payLink: string | null = null; // link de pago si se creó un pedido
   if (botResponse.quote && botResponse.quote.items.length > 0) {
     try {
       const quote = await createQuote(
@@ -63,6 +65,7 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
         undefined,
       );
       lastQuoteId = quote.id;
+      payLink = `${FRONTEND_URL}/pago/${quote.id}`; // link para que el cliente pague
 
       // 5b. Avisar al DUEÑO por WhatsApp del nuevo pedido (además del panel)
       if (OWNER_WHATSAPP) {
@@ -111,6 +114,9 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
     },
   });
 
-  // 8. Responder al cliente por WhatsApp
-  await sendTextMessage(phone, botResponse.reply);
+  // 8. Responder al cliente por WhatsApp (con link de pago si se creó el pedido)
+  const customerReply = payLink
+    ? `${botResponse.reply}\n\n💳 Paga tu pedido aquí:\n${payLink}`
+    : botResponse.reply;
+  await sendTextMessage(phone, customerReply);
 }

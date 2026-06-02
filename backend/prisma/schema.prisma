@@ -128,17 +128,26 @@ enum QuoteStatus {
   CANCELLED
 }
 
+// Estado de pago (pasarela)
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
 model Quote {
   id            String      @id @default(cuid())
   userId        String?     @map("user_id") // Null si es cliente anonimo
   customerName  String      @map("customer_name")
   customerPhone String      @map("customer_phone")
   customerEmail String?     @map("customer_email")
-  status        QuoteStatus @default(PENDING)
-  total         Float       @default(0)
+  status        QuoteStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID) @map("payment_status")
+  paymentMethod String?       @map("payment_method") // ej: "demo", "stripe", "mercadopago"
+  paidAt        DateTime?     @map("paid_at")
+  total         Float         @default(0)
   notes         String?
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   // Relaciones
   user          User?       @relation(fields: [userId], references: [id])

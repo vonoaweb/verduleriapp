@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Catalogo from './pages/Catalogo'
 import Cotizar from './pages/Cotizar'
+import Pago from './pages/Pago'
 import Login from './pages/Login'
 import Admin from './pages/Admin'
 import Productos from './pages/Productos'
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/catalogo" element={<Catalogo />} />
         <Route path="/cotizar" element={<Cotizar />} />
+        <Route path="/pago/:id" element={<Pago />} />
         <Route path="/login" element={<Login />} />
 
         {/* Rutas de admin */}

@@ -148,6 +148,56 @@ export async function getQuoteById(quoteId: string, vendorId?: string) {
   return quote;
 }
 
+// ─── PAGOS (pasarela) ────────────────────────────
+
+// Info pública del pedido para la página de pago (sin auth, por ID)
+export async function getQuoteForPayment(quoteId: string) {
+  const quote = await prisma.quote.findUnique({
+    where: { id: quoteId },
+    select: {
+      id: true,
+      customerName: true,
+      total: true,
+      status: true,
+      paymentStatus: true,
+      items: {
+        select: {
+          quantity: true,
+          price: true,
+          unit: true,
+          product: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (!quote) {
+    throw new AppError(404, 'Pedido no encontrado');
+  }
+  return quote;
+}
+
+// Marca el pedido como pagado.
+// DEMO: simula el cobro (no procesa tarjeta real). Para producción se
+// reemplaza por la confirmación real de Stripe / Mercado Pago.
+export async function markQuotePaid(quoteId: string, method = 'demo') {
+  const quote = await prisma.quote.findUnique({ where: { id: quoteId } });
+  if (!quote) {
+    throw new AppError(404, 'Pedido no encontrado');
+  }
+  if (quote.paymentStatus === 'PAID') {
+    return quote; // ya estaba pagado (idempotente)
+  }
+  return prisma.quote.update({
+    where: { id: quoteId },
+    data: {
+      paymentStatus: 'PAID',
+      paymentMethod: method,
+      paidAt: new Date(),
+      status: 'COMPLETED',
+    },
+  });
+}
+
 // ─── ACTUALIZAR ESTADO DE COTIZACIÓN ─────────────
 export async function updateQuoteStatus(
   quoteId: string,

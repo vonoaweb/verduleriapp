@@ -66,6 +66,35 @@ router.post(
   },
 );
 
+// ─── PAGOS (pasarela) ────────────────────────────
+
+// GET /api/quotes/:id/pay-info — Info pública del pedido para pagar (sin auth)
+router.get(
+  '/:id/pay-info',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const quote = await quoteService.getQuoteForPayment(req.params.id as string);
+      res.json(quote);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// POST /api/quotes/:id/pay — Procesar el pago (DEMO: simulado, sin auth)
+router.post(
+  '/:id/pay',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const method = (req.body?.method as string) || 'demo';
+      const quote = await quoteService.markQuotePaid(req.params.id as string, method);
+      res.json({ success: true, paymentStatus: quote.paymentStatus, quoteId: quote.id });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 // ─── LISTAR COTIZACIONES ─────────────────────────
 
 // GET /api/quotes — Admin ve todas, vendedor ve las suyas

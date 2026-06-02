@@ -7,6 +7,7 @@ export interface ApiQuote {
   customerPhone: string;
   customerEmail: string | null;
   status: 'PENDING' | 'RESPONDED' | 'COMPLETED' | 'CANCELLED';
+  paymentStatus?: 'PAID' | 'UNPAID';
   total: number;
   notes: string | null;
   createdAt: string;
@@ -80,4 +81,27 @@ export const quotesApi = {
   updateStatus(id: string, status: 'PENDING' | 'RESPONDED' | 'COMPLETED' | 'CANCELLED'): Promise<ApiQuote> {
     return api.patch(`/quotes/${id}/status`, { status });
   },
+
+  // ─── Pagos (pasarela) ───────────────────────────
+  getPayInfo(id: string): Promise<PayInfo> {
+    return api.get(`/quotes/${id}/pay-info`);
+  },
+
+  pay(id: string, method = 'demo'): Promise<{ success: boolean; paymentStatus: 'PAID' | 'UNPAID'; quoteId: string }> {
+    return api.post(`/quotes/${id}/pay`, { method });
+  },
 };
+
+export interface PayInfo {
+  id: string;
+  customerName: string;
+  total: number;
+  status: string;
+  paymentStatus: 'PAID' | 'UNPAID';
+  items: Array<{
+    quantity: number;
+    price: number;
+    unit: string;
+    product: { name: string };
+  }>;
+}
