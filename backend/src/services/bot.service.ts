@@ -8,6 +8,7 @@ import { createQuote } from './quote.service.js';
 import { sendTextMessage } from './whatsapp.service.js';
 
 const MAX_HISTORY = 20; // Cuántos mensajes recordar por conversación
+const OWNER_WHATSAPP = process.env.OWNER_WHATSAPP; // Número del dueño para avisarle de pedidos nuevos
 
 // Obtiene el catálogo activo en tiempo real desde la BD
 async function getLiveCatalog(): Promise<CatalogProduct[]> {
@@ -62,6 +63,32 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
         undefined,
       );
       lastQuoteId = quote.id;
+
+      // 5b. Avisar al DUEÑO por WhatsApp del nuevo pedido (además del panel)
+      if (OWNER_WHATSAPP) {
+        const itemLines = quote.items
+          .map(
+            (i, idx) =>
+              `${idx + 1}. ${i.product.name} - ${i.quantity} ${i.unit} x $${i.price.toLocaleString('es-CO')} = $${(i.quantity * i.price).toLocaleString('es-CO')}`,
+          )
+          .join('\n');
+        const ownerMsg = [
+          '🔔 *NUEVO PEDIDO - VerduleriApp*',
+          '',
+          `👤 Cliente: ${quote.customerName}`,
+          `📞 Teléfono: ${quote.customerPhone}`,
+          '',
+          '🛒 *Productos:*',
+          itemLines,
+          '',
+          `💰 *Total: $${quote.total.toLocaleString('es-CO')}*`,
+          '',
+          `_Pedido #${quote.id} · revísalo también en el panel_`,
+        ].join('\n');
+        await sendTextMessage(OWNER_WHATSAPP, ownerMsg).catch(e =>
+          console.error('Error avisando al dueño:', e),
+        );
+      }
     } catch (err) {
       console.error('Error guardando cotización del bot:', err);
     }
