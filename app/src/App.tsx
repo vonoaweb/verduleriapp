@@ -79,6 +79,11 @@ export default function App() {
             <VendorProductoNuevo />
           </ProtectedRoute>
         } />
+        <Route path="/vendedor/productos/:id/editar" element={
+          <ProtectedRoute roles={['VENDOR', 'ADMIN']}>
+            <VendorProductoNuevo />
+          </ProtectedRoute>
+        } />
         <Route path="/vendedor/cotizaciones" element={
           <ProtectedRoute roles={['VENDOR', 'ADMIN']}>
             <VendorCotizaciones />

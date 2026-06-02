@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera,
@@ -46,7 +46,7 @@ const initialForm: FormData = {
 };
 
 /* ─── success screen ─── */
-function SuccessScreen() {
+function SuccessScreen({ isEdit = false }: { isEdit?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -69,7 +69,7 @@ function SuccessScreen() {
           transition={{ delay: 0.3 }}
           className="font-display text-2xl font-bold text-[#2B3A29] mb-2"
         >
-          ¡Producto publicado exitosamente!
+          {isEdit ? '¡Cambios guardados!' : '¡Producto publicado exitosamente!'}
         </motion.h2>
         <motion.p
           initial={{ opacity: 0 }}
@@ -87,14 +87,37 @@ function SuccessScreen() {
 /* ─── main component ─── */
 export default function VendorProductoNuevo() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = Boolean(id);
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [unitOpen, setUnitOpen] = useState(false);
+  const [loadingProduct, setLoadingProduct] = useState(isEdit);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const unitRef = useRef<HTMLDivElement>(null);
+
+  /* ─── cargar producto en modo edición ─── */
+  useEffect(() => {
+    if (!id) return;
+    productsApi.getById(id)
+      .then((p) => {
+        setForm({
+          name: p.name,
+          category: p.category,
+          price: String(p.price),
+          unit: p.unit,
+          description: p.description || '',
+          image: p.imageUrl || '',
+          imageFile: null,
+          status: p.status,
+        });
+      })
+      .catch(() => alert('No se pudo cargar el producto'))
+      .finally(() => setLoadingProduct(false));
+  }, [id]);
 
   /* ─── validate ─── */
   const validate = (): boolean => {
@@ -103,7 +126,8 @@ export default function VendorProductoNuevo() {
     if (!form.category) e.category = 'Selecciona una categoría';
     if (!form.price || Number(form.price) <= 0) e.price = 'Ingresa un precio válido';
     if (!form.unit) e.unit = 'Selecciona una unidad';
-    if (!form.image) e.image = 'Sube una foto del producto';
+    // En edición, la foto existente sirve; solo se exige al crear.
+    if (!isEdit && !form.image) e.image = 'Sube una foto del producto';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -117,30 +141,36 @@ export default function VendorProductoNuevo() {
 
     setSubmitting(true);
     try {
-      // 1. Upload image if we have a file
+      // 1. Subir imagen solo si se eligió una nueva
       let imageUrl: string | undefined;
       if (form.imageFile) {
         const uploadResult = await uploadApi.image(form.imageFile);
         imageUrl = uploadResult.url;
       }
 
-      // 2. Create product
-      await productsApi.create({
+      const payload = {
         name: form.name.trim(),
         category: form.category as 'FRUIT' | 'VEGETABLE',
         price: Number(form.price),
         unit: form.unit,
         description: form.description.trim() || undefined,
-        imageUrl,
         status: form.status,
-      });
+        // En edición sin imagen nueva, no se envía imageUrl (se conserva la actual)
+        ...(imageUrl ? { imageUrl } : {}),
+      };
+
+      if (isEdit && id) {
+        await productsApi.update(id, payload);
+      } else {
+        await productsApi.create(payload);
+      }
 
       setShowSuccess(true);
       setTimeout(() => {
         navigate('/vendedor/productos');
-      }, 2000);
+      }, 1500);
     } catch (err: any) {
-      alert(err.message || 'Error al crear el producto');
+      alert(err.message || (isEdit ? 'Error al guardar los cambios' : 'Error al crear el producto'));
     } finally {
       setSubmitting(false);
     }
@@ -224,10 +254,18 @@ export default function VendorProductoNuevo() {
   const previewCategory = form.category === 'FRUIT' ? 'Fruta' : form.category === 'VEGETABLE' ? 'Verdura' : '';
   const previewImage = form.image || null;
 
+  if (loadingProduct) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-[#2D6A4F] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <AnimatePresence>
-        {showSuccess && <SuccessScreen />}
+        {showSuccess && <SuccessScreen isEdit={isEdit} />}
       </AnimatePresence>
 
       {/* Header */}
@@ -245,10 +283,10 @@ export default function VendorProductoNuevo() {
           Volver a productos
         </button>
         <h1 className="font-display text-3xl font-bold text-[#2B3A29]">
-          Subir Nuevo Producto
+          {isEdit ? 'Editar Producto' : 'Subir Nuevo Producto'}
         </h1>
         <p className="text-[#5C6F5A] mt-1">
-          Completa los datos de tu producto
+          {isEdit ? 'Actualiza el precio u otros datos del producto' : 'Completa los datos de tu producto'}
         </p>
       </motion.div>
 
@@ -546,7 +584,9 @@ export default function VendorProductoNuevo() {
                 className="flex-1 py-3 rounded-xl text-sm font-semibold text-white bg-[#2D6A4F] hover:bg-[#1B4332] transition-all duration-200 hover:-translate-y-0.5 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {submitting ? 'Publicando...' : 'Publicar Producto'}
+                {submitting
+                  ? (isEdit ? 'Guardando...' : 'Publicando...')
+                  : (isEdit ? 'Guardar cambios' : 'Publicar Producto')}
               </button>
             </div>
           </form>

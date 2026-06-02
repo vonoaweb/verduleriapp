@@ -44,11 +44,13 @@ function ProductCard({
   index,
   onToggleStatus,
   onDelete,
+  onEdit,
 }: {
   product: ApiProduct;
   index: number;
   onToggleStatus: (id: string, currentStatus: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
 }) {
   const [imgError, setImgError] = useState(false);
 
@@ -79,7 +81,7 @@ function ProductCard({
         </div>
         <div className="absolute top-3 right-3 flex gap-1">
           <button
-            onClick={() => {}}
+            onClick={() => onEdit(product.id)}
             className="w-8 h-8 rounded-lg bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors opacity-0 group-hover:opacity-100 duration-200"
             title="Editar"
           >
@@ -336,6 +338,7 @@ export default function VendorProductos() {
                 index={idx}
                 onToggleStatus={handleToggleStatus}
                 onDelete={handleDelete}
+                onEdit={(pid) => navigate(`/vendedor/productos/${pid}/editar`)}
               />
             ))}
           </AnimatePresence>
