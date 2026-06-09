@@ -146,6 +146,10 @@ model Quote {
   paidAt        DateTime?     @map("paid_at")
   total         Float         @default(0)
   notes         String?
+  // ─── Entrega / delivery ───
+  deliveryAddress String?     @map("delivery_address") // número de casa + referencias
+  latitude        Float?      // si el cliente comparte su ubicación
+  longitude       Float?
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
@@ -161,12 +165,13 @@ model Quote {
 // ─── CONVERSACIONES DEL BOT DE WHATSAPP ──────────
 // Guarda el historial de cada chat para que el bot recuerde el contexto
 model BotConversation {
-  id        String   @id @default(cuid())
-  phone     String   @unique // Numero del cliente en WhatsApp
-  messages  Json     @default("[]") // Historial [{role, text}]
-  lastQuote String?  @map("last_quote") // ID de la ultima cotizacion generada
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  phone        String   @unique // Numero del cliente en WhatsApp
+  messages     Json     @default("[]") // Historial [{role, text}]
+  lastQuote    String?  @map("last_quote") // ID de la ultima cotizacion generada
+  lastLocation Json?    @map("last_location") // Ultima ubicacion compartida {lat, lng, name, address}
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("bot_conversations")
 }

@@ -27,16 +27,37 @@ async function getLiveCatalog(): Promise<CatalogProduct[]> {
   }));
 }
 
-// Procesa un mensaje entrante y responde por WhatsApp
-export async function handleIncomingMessage(phone: string, text: string): Promise<void> {
+interface IncomingLocation {
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
+}
+interface IncomingInput {
+  text?: string;
+  location?: IncomingLocation;
+}
+
+// Procesa un mensaje entrante (texto o ubicación) y responde por WhatsApp
+export async function handleIncomingMessage(phone: string, input: IncomingInput): Promise<void> {
   // 1. Cargar (o crear) la conversación
   const conversation = await prisma.botConversation.findUnique({ where: { phone } });
   const history: ChatMessage[] = Array.isArray(conversation?.messages)
     ? (conversation!.messages as unknown as ChatMessage[])
     : [];
 
-  // 2. Agregar el mensaje del cliente
-  history.push({ role: 'user', text });
+  // 2. Procesar entrada: texto o ubicación compartida 📍
+  let savedLocation = (conversation?.lastLocation as IncomingLocation | null) ?? null;
+  if (input.location) {
+    savedLocation = input.location; // recordamos la ubicación para el pedido
+    const ref = input.location.address || input.location.name || '';
+    history.push({
+      role: 'user',
+      text: `📍 (Compartí mi ubicación de entrega${ref ? ': ' + ref : ''}). Lat ${input.location.latitude}, Lng ${input.location.longitude}`,
+    });
+  } else {
+    history.push({ role: 'user', text: input.text || '' });
+  }
 
   // 3. Catálogo en tiempo real
   const catalog = await getLiveCatalog();
@@ -54,6 +75,9 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
           customerName: botResponse.quote.customerName,
           customerPhone: phone,
           notes: 'Cotización generada por el bot de WhatsApp 🤖',
+          deliveryAddress: botResponse.quote.address || undefined,
+          latitude: savedLocation?.latitude,
+          longitude: savedLocation?.longitude,
           items: botResponse.quote.items.map(i => ({
             productId: i.id,
             vendorId: '',  // el servicio lo resuelve desde la BD
@@ -75,11 +99,17 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
               `${idx + 1}. ${i.product.name} - ${i.quantity} ${i.unit} x $${i.price.toLocaleString('es-CO')} = $${(i.quantity * i.price).toLocaleString('es-CO')}`,
           )
           .join('\n');
-        const ownerMsg = [
+        const lines = [
           '🔔 *NUEVO PEDIDO - VerduleriApp*',
           '',
           `👤 Cliente: ${quote.customerName}`,
           `📞 Teléfono: ${quote.customerPhone}`,
+        ];
+        if (quote.deliveryAddress) lines.push(`🏠 Dirección: ${quote.deliveryAddress}`);
+        if (quote.latitude && quote.longitude) {
+          lines.push(`📍 Mapa: https://maps.google.com/?q=${quote.latitude},${quote.longitude}`);
+        }
+        lines.push(
           '',
           '🛒 *Productos:*',
           itemLines,
@@ -87,8 +117,8 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
           `💰 *Total: $${quote.total.toLocaleString('es-CO')}*`,
           '',
           `_Pedido #${quote.id} · revísalo también en el panel_`,
-        ].join('\n');
-        await sendTextMessage(OWNER_WHATSAPP, ownerMsg).catch(e =>
+        );
+        await sendTextMessage(OWNER_WHATSAPP, lines.join('\n')).catch(e =>
           console.error('Error avisando al dueño:', e),
         );
       }
@@ -107,10 +137,12 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
       phone,
       messages: history.slice(-MAX_HISTORY) as unknown as object,
       lastQuote: lastQuoteId,
+      lastLocation: (savedLocation as unknown as object) ?? undefined,
     },
     update: {
       messages: history.slice(-MAX_HISTORY) as unknown as object,
       lastQuote: lastQuoteId,
+      lastLocation: (savedLocation as unknown as object) ?? undefined,
     },
   });
 

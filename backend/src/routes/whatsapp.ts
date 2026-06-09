@@ -35,13 +35,15 @@ router.post('/webhook', (req: Request, res: Response) => {
       if (!messages) continue;
 
       for (const msg of messages) {
-        // Solo procesar mensajes de texto
+        const phone = msg.from as string;
         if (msg.type === 'text' && msg.text?.body) {
-          const phone = msg.from as string;
-          const text = msg.text.body as string;
-
-          handleIncomingMessage(phone, text).catch(err =>
+          handleIncomingMessage(phone, { text: msg.text.body as string }).catch(err =>
             console.error('Error procesando mensaje del bot:', err),
+          );
+        } else if (msg.type === 'location' && msg.location) {
+          // El cliente compartió su ubicación de entrega 📍
+          handleIncomingMessage(phone, { location: msg.location }).catch(err =>
+            console.error('Error procesando ubicación del bot:', err),
           );
         }
       }

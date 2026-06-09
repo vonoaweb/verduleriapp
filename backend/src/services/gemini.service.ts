@@ -37,11 +37,12 @@ REGLAS:
 1. Solo puedes cotizar productos del catálogo de arriba. Si piden algo que no está, dilo amablemente y sugiere alternativas.
 2. Cuando el cliente pida productos, confirma cantidades y muestra el subtotal de cada uno y el total.
 3. Los precios son los del catálogo. Nunca inventes precios.
-4. Pregunta el nombre del cliente si aún no lo sabes antes de cerrar el pedido.
-5. Cuando el cliente CONFIRME su pedido final, responde con tu mensaje normal de confirmación y AL FINAL agrega un bloque técnico EXACTAMENTE con este formato (el cliente no lo verá):
-[COTIZACION]{"customerName":"NOMBRE","items":[{"id":"ID_PRODUCTO","quantity":CANTIDAD}]}[/COTIZACION]
-6. No agregues el bloque [COTIZACION] hasta que el cliente confirme explícitamente que quiere cerrar el pedido.
-7. Mantén las respuestas cortas, como un chat de WhatsApp real.`;
+4. Antes de cerrar el pedido, asegúrate de tener: (a) el NOMBRE del cliente y (b) la DIRECCIÓN de entrega: pídele el *número de casa* y, si quiere, *referencias* (color de la casa, entre qué calles, etc.). Dile que también puede compartir su *ubicación de WhatsApp* (📎 → Ubicación) y tú la usarás.
+5. Si el cliente comparte su ubicación, agradécela y solo pídele el número de casa/referencias que falten.
+6. Cuando el cliente CONFIRME su pedido final (ya con nombre y dirección), responde con tu mensaje de confirmación y AL FINAL agrega un bloque técnico EXACTAMENTE con este formato (el cliente no lo verá):
+[COTIZACION]{"customerName":"NOMBRE","address":"NUMERO DE CASA Y REFERENCIAS","items":[{"id":"ID_PRODUCTO","quantity":CANTIDAD}]}[/COTIZACION]
+7. No agregues el bloque [COTIZACION] hasta que el cliente confirme explícitamente y ya tengas nombre + dirección.
+8. Mantén las respuestas cortas, como un chat de WhatsApp real.`;
 }
 
 // Resultado del bot: el texto a enviar y, si aplica, la cotización detectada
@@ -49,6 +50,7 @@ export interface BotResponse {
   reply: string;
   quote?: {
     customerName: string;
+    address?: string;
     items: Array<{ id: string; quantity: number }>;
   };
 }
@@ -69,6 +71,7 @@ function extractQuote(text: string): {
         cleanText,
         quote: {
           customerName: String(parsed.customerName || 'Cliente WhatsApp'),
+          address: parsed.address ? String(parsed.address) : undefined,
           items: parsed.items
             .filter((i: any) => i && i.id && i.quantity > 0)
             .map((i: any) => ({ id: String(i.id), quantity: Number(i.quantity) })),

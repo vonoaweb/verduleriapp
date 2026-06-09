@@ -45,6 +45,9 @@ export const createQuoteSchema = z.object({
   customerPhone: z.string().min(8, 'Teléfono inválido'),
   customerEmail: z.email().optional(),
   notes: z.string().optional(),
+  deliveryAddress: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   items: z.array(z.object({
     productId: z.string(),
     vendorId: z.string(),

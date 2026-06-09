@@ -178,6 +178,19 @@ export default function Cotizaciones() {
                               <Phone className="w-3 h-3 text-[#95A893]" />
                               <span className="text-xs text-[#95A893]">{q.customerPhone}</span>
                             </div>
+                            {q.deliveryAddress && (
+                              <p className="text-xs text-[#5C6F5A] mt-0.5">🏠 {q.deliveryAddress}</p>
+                            )}
+                            {q.latitude && q.longitude && (
+                              <a
+                                href={`https://maps.google.com/?q=${q.latitude},${q.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-[#2D6A4F] hover:underline mt-0.5 inline-block"
+                              >
+                                📍 Ver en mapa
+                              </a>
+                            )}
                           </div>
                         </div>
                       </td>

@@ -41,6 +41,9 @@ export async function createQuote(input: CreateQuoteInput, userId?: string) {
       customerPhone: input.customerPhone,
       customerEmail: input.customerEmail,
       notes: input.notes,
+      deliveryAddress: input.deliveryAddress,
+      latitude: input.latitude,
+      longitude: input.longitude,
       total,
       items: {
         create: validatedItems,

@@ -8,6 +8,9 @@ export interface ApiQuote {
   customerEmail: string | null;
   status: 'PENDING' | 'RESPONDED' | 'COMPLETED' | 'CANCELLED';
   paymentStatus?: 'PAID' | 'UNPAID';
+  deliveryAddress?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   total: number;
   notes: string | null;
   createdAt: string;
