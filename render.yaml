@@ -30,3 +30,8 @@ services:
         sync: false
       - key: STRIPE_CURRENCY
         value: mxn
+      # ─── Seguridad del webhook de WhatsApp ───
+      # App secret de Meta (Configuración de la app → Básico). Al ponerlo,
+      # el bot rechaza mensajes que no vengan firmados por Meta.
+      - key: WHATSAPP_APP_SECRET
+        sync: false

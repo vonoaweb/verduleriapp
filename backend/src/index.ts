@@ -70,7 +70,12 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json());
+// Guardamos el body crudo para poder verificar la firma del webhook de Meta
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as any).rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── ARCHIVOS ESTÁTICOS (imágenes subidas) ───────

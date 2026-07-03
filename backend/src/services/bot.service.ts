@@ -88,8 +88,22 @@ interface IncomingInput {
   location?: IncomingLocation;
 }
 
+const MAX_INPUT_LEN = 1000; // los mensajes de WhatsApp son cortos; cap contra payloads gigantes
+
+// Limpia el texto del cliente antes de usarlo: quita los marcadores del bloque
+// técnico [COTIZACION] (para que nadie los inyecte pegándolos) y acota el largo.
+function sanitizeUserText(text: string): string {
+  return text
+    .replace(/\[\s*\/?\s*COTIZACION\s*\]/gi, '')
+    .slice(0, MAX_INPUT_LEN)
+    .trim();
+}
+
 // Procesa un mensaje entrante (texto o ubicación) y responde por WhatsApp
 export async function handleIncomingMessage(phone: string, input: IncomingInput): Promise<void> {
+  // 0. Sanear el texto entrante (anti prompt-injection)
+  if (input.text) input.text = sanitizeUserText(input.text);
+
   // 1. Cargar (o crear) la conversación
   const conversation = await prisma.botConversation.findUnique({ where: { phone } });
   const history: ChatMessage[] = Array.isArray(conversation?.messages)

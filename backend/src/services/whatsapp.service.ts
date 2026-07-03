@@ -3,6 +3,8 @@
 // 1. wa.me links (gratis, el cliente abre WhatsApp)
 // 2. WhatsApp Business API (de pago, envío automático)
 
+import crypto from 'crypto';
+
 interface QuoteMessage {
   vendorWhatsapp: string;
   vendorName: string;
@@ -212,6 +214,23 @@ export async function sendDocumentMessage(
     return true;
   } catch (error) {
     console.error('Error enviando documento WhatsApp:', error);
+    return false;
+  }
+}
+
+// ─── Verificación de firma del webhook (anti mensajes falsos) ──
+// Meta firma cada POST con X-Hub-Signature-256 = HMAC-SHA256(appSecret, body).
+// Si WHATSAPP_APP_SECRET está configurado, rechazamos lo que no venga de Meta.
+export function verifyMetaSignature(rawBody: Buffer | undefined, signatureHeader?: string): boolean {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) return true; // sin secreto configurado → no verificamos (compatibilidad)
+  if (!rawBody || !signatureHeader) return false;
+
+  const expected =
+    'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
+  } catch {
     return false;
   }
 }

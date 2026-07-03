@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { verifyWebhook } from '../services/whatsapp.service.js';
+import { verifyWebhook, verifyMetaSignature } from '../services/whatsapp.service.js';
 import { handleIncomingMessage } from '../services/bot.service.js';
 
 const router = Router();
@@ -21,6 +21,14 @@ router.get('/webhook', (req: Request, res: Response) => {
 
 // POST /api/whatsapp/webhook — Recibir mensajes entrantes
 router.post('/webhook', (req: Request, res: Response) => {
+  // Verificar que el mensaje venga realmente de Meta (si hay app secret)
+  const signature = req.header('x-hub-signature-256');
+  if (!verifyMetaSignature((req as any).rawBody, signature)) {
+    console.warn('⛔ Webhook con firma inválida — mensaje descartado');
+    res.status(403).send('Forbidden');
+    return;
+  }
+
   const body = req.body;
 
   // Responder 200 de inmediato (Meta exige respuesta rápida)

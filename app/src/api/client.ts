@@ -143,6 +143,15 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
+  // ─── Warmup ─────────────────────────────────────
+  // Despierta el backend (Render free se duerme). Se llama al cargar la app
+  // para que el servidor se vaya calentando mientras el usuario navega.
+  warmup(): void {
+    fetch(`${this.baseUrl}/health`, { method: 'GET' }).catch(() => {
+      /* silencioso: solo es para despertar el backend */
+    });
+  }
+
   // ─── Upload ─────────────────────────────────────
   upload<T>(endpoint: string, file: File, fieldName = 'image') {
     const formData = new FormData();

@@ -15,4 +15,17 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Separa las librerías pesadas para que se cacheen aparte y no
+        // se vuelvan a descargar en cada deploy del código de la app.
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'motion': ['framer-motion'],
+          'icons': ['lucide-react'],
+        },
+      },
+    },
+  },
 });
