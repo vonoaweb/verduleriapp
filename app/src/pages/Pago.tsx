@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CreditCard,
@@ -27,6 +27,7 @@ function formatExpiry(value: string) {
 
 export default function Pago() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [info, setInfo] = useState<PayInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,14 +42,49 @@ export default function Pago() {
 
   useEffect(() => {
     if (!id) return;
-    quotesApi.getPayInfo(id)
-      .then((d) => {
+    const sessionId = searchParams.get('session_id');
+    const load = async () => {
+      // Si venimos de Stripe, confirmar el pago primero (respaldo del webhook)
+      if (sessionId) {
+        try {
+          await quotesApi.verifyPayment(id, sessionId);
+        } catch {
+          // el webhook puede haberlo confirmado ya; pay-info dirá la verdad
+        }
+      }
+      try {
+        const d = await quotesApi.getPayInfo(id);
         setInfo(d);
         if (d.paymentStatus === 'PAID') setPaid(true);
-      })
-      .catch(() => setError('No encontramos este pedido. El enlace puede ser inválido.'))
-      .finally(() => setLoading(false));
-  }, [id]);
+      } catch {
+        setError('No encontramos este pedido. El enlace puede ser inválido.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, searchParams]);
+
+  // ─── Pago real con Stripe Checkout ───
+  const handleStripeCheckout = async () => {
+    if (!id || processing) return;
+    setError('');
+    setProcessing(true);
+    try {
+      const result = await quotesApi.checkout(id);
+      if (result.mode === 'stripe' && result.url) {
+        window.location.href = result.url; // redirigir a Stripe
+        return;
+      }
+      if (result.mode === 'paid') {
+        setPaid(true);
+      }
+    } catch {
+      setError('No se pudo iniciar el pago. Intenta de nuevo.');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,14 +163,16 @@ export default function Pago() {
       <h1 className="font-display text-3xl font-bold text-[#2B3A29] mb-1">Pagar pedido</h1>
       <p className="text-[#5C6F5A] mb-6">Completa tu pago de forma segura</p>
 
-      {/* Banner modo demo */}
-      <div className="flex items-start gap-2 bg-[#FFF3E0] border border-[#F4A261]/40 rounded-xl px-4 py-3 mb-6">
-        <ShieldCheck className="w-5 h-5 text-[#E65100] shrink-0 mt-0.5" />
-        <p className="text-sm text-[#8a4b00]">
-          <b>Modo demostración:</b> no se realiza ningún cobro real. Usa la tarjeta de prueba
-          <b> 4242 4242 4242 4242</b>, cualquier fecha futura y cualquier CVC.
-        </p>
-      </div>
+      {/* Banner modo demo (solo si Stripe no está configurado) */}
+      {!info?.stripeEnabled && (
+        <div className="flex items-start gap-2 bg-[#FFF3E0] border border-[#F4A261]/40 rounded-xl px-4 py-3 mb-6">
+          <ShieldCheck className="w-5 h-5 text-[#E65100] shrink-0 mt-0.5" />
+          <p className="text-sm text-[#8a4b00]">
+            <b>Modo demostración:</b> no se realiza ningún cobro real. Usa la tarjeta de prueba
+            <b> 4242 4242 4242 4242</b>, cualquier fecha futura y cualquier CVC.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Resumen */}
@@ -165,8 +203,36 @@ export default function Pago() {
           </div>
         </div>
 
-        {/* Formulario de tarjeta */}
+        {/* Pago con Stripe (real) o formulario demo */}
         <div className="lg:col-span-3">
+          {info?.stripeEnabled ? (
+            <div className="bg-white rounded-2xl border border-[#D9E2D7] shadow-product p-5 space-y-4">
+              <h2 className="font-display text-lg font-bold text-[#2B3A29] flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-[#2D6A4F]" />
+                Pago con tarjeta
+              </h2>
+              <p className="text-sm text-[#5C6F5A]">
+                Te llevaremos a la página segura de <b>Stripe</b> para completar tu pago.
+                Aceptamos tarjetas de crédito y débito.
+              </p>
+              {error && <p className="text-sm text-[#E63946]">{error}</p>}
+              <button
+                type="button"
+                onClick={handleStripeCheckout}
+                disabled={processing}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-semibold bg-[#2D6A4F] hover:bg-[#1B4332] transition-all duration-200 hover:-translate-y-0.5 shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
+              >
+                {processing ? (
+                  <><Loader2 className="w-5 h-5 animate-spin" /> Conectando con Stripe...</>
+                ) : (
+                  <><Lock className="w-4 h-4" /> Pagar ${info?.total.toLocaleString('es-MX')} con tarjeta</>
+                )}
+              </button>
+              <p className="text-xs text-[#95A893] text-center flex items-center justify-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> Procesado por Stripe · cifrado de extremo a extremo
+              </p>
+            </div>
+          ) : (
           <form onSubmit={handlePay} className="bg-white rounded-2xl border border-[#D9E2D7] shadow-product p-5 space-y-4">
             <h2 className="font-display text-lg font-bold text-[#2B3A29] flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-[#2D6A4F]" />
@@ -237,6 +303,7 @@ export default function Pago() {
               <Lock className="w-3 h-3" /> Pago cifrado y seguro
             </p>
           </form>
+          )}
         </div>
       </div>
     </div>

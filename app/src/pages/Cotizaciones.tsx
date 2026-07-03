@@ -178,8 +178,14 @@ export default function Cotizaciones() {
                               <Phone className="w-3 h-3 text-[#95A893]" />
                               <span className="text-xs text-[#95A893]">{q.customerPhone}</span>
                             </div>
+                            {q.deliveryColonia && (
+                              <p className="text-xs text-[#5C6F5A] mt-0.5">🏘️ {q.deliveryColonia}{q.deliveryZone ? ` · ${q.deliveryZone}` : ''}</p>
+                            )}
                             {q.deliveryAddress && (
                               <p className="text-xs text-[#5C6F5A] mt-0.5">🏠 {q.deliveryAddress}</p>
+                            )}
+                            {q.deliveryDate && (
+                              <p className="text-xs text-[#2D6A4F] font-medium mt-0.5">🚚 {q.deliveryDate}{q.deliverySlot ? `, ${q.deliverySlot}` : ''}</p>
                             )}
                             {q.latitude && q.longitude && (
                               <a

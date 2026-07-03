@@ -96,13 +96,16 @@
 4. Contraste de textos gris claro (`#95A893`) puede no cumplir WCAG AA → oscurecer.
 5. El admin no puede CREAR productos (solo editar) → agregar botón "Nuevo".
 
-### B) Pasarela de pagos (NUEVO — solicitado, aún no empezado)
-- Objetivo: que el cliente pueda **pagar** el pedido (no solo cotizar).
-- Decisiones a tomar: proveedor (Stripe / Mercado Pago / etc. según país),
-  si el pago es por la web o por link en WhatsApp, manejo de estados del pedido
-  (pendiente → pagado → completado).
-- El modelo `Quote` ya tiene `status` (PENDING/RESPONDED/COMPLETED/CANCELLED);
-  habría que añadir estado de pago y la integración.
+### B) Stripe — solo falta poner las llaves
+- El código de **Stripe Checkout ya está integrado** (jul 2026). Mientras no
+  haya llaves, la página de pago usa el modo demo automáticamente.
+- Para activarlo: en **Render → Environment** agregar `STRIPE_SECRET_KEY`
+  (la manda Rodrigo, cuenta de EE. UU., cobra en MXN vía `STRIPE_CURRENCY=mxn`).
+- Opcional pero recomendado: webhook en el dashboard de Stripe apuntando a
+  `https://verduleriapp-api.onrender.com/api/stripe/webhook` (evento
+  `checkout.session.completed`) y poner el `STRIPE_WEBHOOK_SECRET` en Render.
+  Aún sin webhook el pago se confirma al volver del redirect (verify-payment).
+- Con Stripe activo, el pago demo queda deshabilitado automáticamente.
 
 ### C) Infra
 - **Imágenes en Render son efímeras**: si un vendedor sube fotos reales, se
@@ -113,13 +116,26 @@
 ---
 
 ## 8. Archivos clave del bot
-- `backend/src/services/bot.service.ts` — orquestador (recibe → IA → guarda → avisa).
-- `backend/src/services/gemini.service.ts` — IA + catálogo en tiempo real + detección de pedido.
-- `backend/src/services/whatsapp.service.ts` — enviar/recibir WhatsApp (incluye fix MX 521).
-- `backend/src/routes/whatsapp.ts` — webhook.
-- `backend/prisma/schema.prisma` — modelos (incluye `BotConversation`).
-- `app/src/pages/VendorProductoNuevo.tsx` — formulario crear/**editar** producto.
+- `backend/src/services/bot.service.ts` — orquestador (productor/historial/IA → valida zona → guarda → avisa).
+- `backend/src/services/gemini.service.ts` — IA + catálogo en tiempo real + detección de pedido (con colonia y día/horario de entrega).
+- `backend/src/services/vendor-bot.service.ts` — **modo productor**: `clave XXXX`, precios, pausar/activar, reportes.
+- `backend/src/services/report.service.ts` — reportes de ventas en **PDF** (pdfkit + URL firmada).
+- `backend/src/services/stripe.service.ts` — Stripe Checkout + webhook (API REST, sin SDK).
+- `backend/src/config/zones.ts` — **zonas de reparto ZMG** (3 rutas, colonias, días, horarios).
+- `backend/src/services/whatsapp.service.ts` — enviar texto/documentos WhatsApp (incluye fix MX 521).
+- `backend/src/routes/whatsapp.ts` — webhook de Meta. `backend/src/routes/reports.ts` — sirve los PDF.
+- `backend/prisma/schema.prisma` — modelos (Quote con colonia/zona/fecha/horario; Vendor.accessCode).
+- `app/src/pages/Pago.tsx` — checkout (Stripe si hay llaves, demo si no).
 - `ESTADO-BOT-WHATSAPP.md` — detalle del setup de Meta/WhatsApp.
+
+### Funciones del bot (julio 2026)
+- **Cliente**: cotiza con precios reales, valida que la colonia esté en zona de
+  servicio (si no, informa las rutas), pide día/horario según la ruta, guarda el
+  pedido, manda link de pago, y "*mis pedidos*" muestra su historial.
+- **Productor**: escribe `clave SUCODIGO` (visible en su panel web) y puede:
+  `productos`, `precio <nombre> <precio>`, `pausar/activar <nombre>`,
+  `reporte hoy|semana|mes` (recibe PDF), `salir`.
+- Los códigos se generan solos al arrancar el server (`ensureVendorAccessCodes`).
 
 ## 9. Cómo continuar (siguiente sesión)
 1. Leer este archivo + `ESTADO-BOT-WHATSAPP.md`.

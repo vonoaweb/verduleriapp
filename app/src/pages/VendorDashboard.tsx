@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { productsApi, type ApiProduct } from '@/api/products';
 import { quotesApi, type QuoteStats } from '@/api/quotes';
+import { vendorsApi, type ApiVendor } from '@/api/vendors';
 
 /* ─── counter hook ─── */
 function useCounter(target: number, duration = 1200) {
@@ -154,19 +155,22 @@ export default function VendorDashboard() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [stats, setStats] = useState<QuoteStats | null>(null);
   const [quotes, setQuotes] = useState<any[]>([]);
+  const [vendor, setVendor] = useState<ApiVendor | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [prodsRes, statsRes, quotesRes] = await Promise.all([
+        const [prodsRes, statsRes, quotesRes, vendorRes] = await Promise.all([
           productsApi.getMyProducts(),
           quotesApi.getStats(),
           quotesApi.list({ limit: 5 }),
+          vendorsApi.getMyProfile().catch(() => null),
         ]);
         setProducts(prodsRes);
         setStats(statsRes);
         setQuotes(quotesRes.quotes || []);
+        setVendor(vendorRes);
       } catch (err) {
         console.error('Error loading dashboard:', err);
       } finally {
@@ -209,6 +213,34 @@ export default function VendorDashboard() {
           Panel de vendedor
         </p>
       </motion.div>
+
+      {/* Código del bot de WhatsApp */}
+      {vendor?.accessCode && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="mb-8 bg-[#D8F3DC]/60 border border-[#52B788]/40 rounded-2xl p-5"
+        >
+          <div className="flex flex-wrap items-center gap-4 justify-between">
+            <div>
+              <h2 className="font-display font-bold text-lg text-[#1B4332] flex items-center gap-2">
+                🤖 Gestiona tu inventario por WhatsApp
+              </h2>
+              <p className="text-sm text-[#2D6A4F] mt-1">
+                Escríbele al bot <b>clave {vendor.accessCode}</b> para entrar al modo productor:
+                cambia precios, pausa productos y pide tu reporte de ventas en PDF.
+              </p>
+            </div>
+            <div className="bg-white rounded-xl px-5 py-3 border border-[#52B788]/40 text-center">
+              <p className="text-xs text-[#5C6F5A] uppercase font-semibold">Tu código</p>
+              <p className="text-2xl font-bold font-mono text-[#2D6A4F] tracking-wider">
+                {vendor.accessCode}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">

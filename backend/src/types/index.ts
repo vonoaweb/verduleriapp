@@ -46,6 +46,10 @@ export const createQuoteSchema = z.object({
   customerEmail: z.email().optional(),
   notes: z.string().optional(),
   deliveryAddress: z.string().optional(),
+  deliveryColonia: z.string().optional(),
+  deliveryZone: z.string().optional(),
+  deliveryDate: z.string().optional(),
+  deliverySlot: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   items: z.array(z.object({

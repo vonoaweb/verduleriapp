@@ -9,6 +9,10 @@ export interface ApiQuote {
   status: 'PENDING' | 'RESPONDED' | 'COMPLETED' | 'CANCELLED';
   paymentStatus?: 'PAID' | 'UNPAID';
   deliveryAddress?: string | null;
+  deliveryColonia?: string | null;
+  deliveryZone?: string | null;
+  deliveryDate?: string | null;
+  deliverySlot?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   total: number;
@@ -93,6 +97,16 @@ export const quotesApi = {
   pay(id: string, method = 'demo'): Promise<{ success: boolean; paymentStatus: 'PAID' | 'UNPAID'; quoteId: string }> {
     return api.post(`/quotes/${id}/pay`, { method });
   },
+
+  // Crea la sesión de Stripe Checkout; si el backend no tiene llaves → modo demo
+  checkout(id: string): Promise<{ mode: 'stripe' | 'demo' | 'paid'; url?: string }> {
+    return api.post(`/quotes/${id}/checkout`, {});
+  },
+
+  // Confirma el pago al volver de Stripe (respaldo del webhook)
+  verifyPayment(id: string, sessionId: string): Promise<{ success: boolean; paymentStatus: 'PAID' | 'UNPAID' }> {
+    return api.get(`/quotes/${id}/verify-payment`, { session_id: sessionId } as any);
+  },
 };
 
 export interface PayInfo {
@@ -101,6 +115,7 @@ export interface PayInfo {
   total: number;
   status: string;
   paymentStatus: 'PAID' | 'UNPAID';
+  stripeEnabled?: boolean;
   items: Array<{
     quantity: number;
     price: number;

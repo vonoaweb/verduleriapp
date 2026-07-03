@@ -169,6 +169,53 @@ export async function sendTextMessage(to: string, text: string): Promise<boolean
   }
 }
 
+// ─── Enviar documento (PDF de reportes, para el bot) ──
+// El link debe ser una URL pública (nuestro backend sirve el PDF con token firmado)
+export async function sendDocumentMessage(
+  to: string,
+  link: string,
+  filename: string,
+  caption?: string,
+): Promise<boolean> {
+  if (!WHATSAPP_PHONE_ID || !WHATSAPP_ACCESS_TOKEN) {
+    console.warn('⚠️ WhatsApp Cloud API no configurada — no se pudo enviar el documento');
+    return false;
+  }
+
+  let phone = to.replace(/[^0-9]/g, '');
+  if (phone.startsWith('521') && phone.length === 13) {
+    phone = '52' + phone.slice(3);
+  } else if (phone.startsWith('549') && phone.length === 13) {
+    phone = '54' + phone.slice(3);
+  }
+
+  try {
+    const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: phone,
+        type: 'document',
+        document: { link, filename, ...(caption ? { caption } : {}) },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Error enviando documento WhatsApp:', response.status, await response.text());
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error enviando documento WhatsApp:', error);
+    return false;
+  }
+}
+
 // ─── Webhook para recibir respuestas de WhatsApp ──
 export function verifyWebhook(mode: string, token: string, challenge: string): string | null {
   const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'verduleriapp-bot-2026';

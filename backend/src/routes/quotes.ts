@@ -5,6 +5,7 @@ import { createQuoteSchema, updateQuoteStatusSchema } from '../types/index.js';
 import * as quoteService from '../services/quote.service.js';
 import { qs, qn } from '../utils/query.js';
 import { sendWhatsAppMessage, generateWhatsAppLink } from '../services/whatsapp.service.js';
+import * as stripeService from '../services/stripe.service.js';
 
 const router = Router();
 
@@ -74,7 +75,58 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const quote = await quoteService.getQuoteForPayment(req.params.id as string);
-      res.json(quote);
+      // stripeEnabled le dice al frontend si mostrar Stripe o el checkout demo
+      res.json({ ...quote, stripeEnabled: stripeService.stripeEnabled() });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// POST /api/quotes/:id/checkout — Crear sesión de Stripe Checkout (sin auth)
+// Devuelve la URL de Stripe a la que hay que redirigir al cliente.
+router.post(
+  '/:id/checkout',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const quote = await quoteService.getQuoteForPayment(req.params.id as string);
+      if (quote.paymentStatus === 'PAID') {
+        res.json({ mode: 'paid' });
+        return;
+      }
+      if (!stripeService.stripeEnabled()) {
+        res.json({ mode: 'demo' }); // sin llaves de Stripe → checkout demo
+        return;
+      }
+      const frontendUrl = process.env.FRONTEND_URL || 'https://verduleriapp.vercel.app';
+      const session = await stripeService.createCheckoutSession(quote, frontendUrl);
+      res.json({ mode: 'stripe', url: session.url });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// GET /api/quotes/:id/verify-payment?session_id=... — Confirmar pago al volver
+// de Stripe (respaldo del webhook: funciona aunque el webhook no esté configurado)
+router.get(
+  '/:id/verify-payment',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const quoteId = req.params.id as string;
+      const sessionId = req.query.session_id as string;
+      if (!sessionId || !stripeService.stripeEnabled()) {
+        res.status(400).json({ error: 'Sesión de pago inválida' });
+        return;
+      }
+      const session = await stripeService.getCheckoutSession(sessionId);
+      const sessionQuoteId = session.metadata?.quoteId || session.client_reference_id;
+      if (session.payment_status === 'paid' && sessionQuoteId === quoteId) {
+        const quote = await quoteService.markQuotePaid(quoteId, 'stripe');
+        res.json({ success: true, paymentStatus: quote.paymentStatus });
+        return;
+      }
+      res.json({ success: false, paymentStatus: 'UNPAID' });
     } catch (error) {
       next(error);
     }
@@ -86,6 +138,12 @@ router.post(
   '/:id/pay',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Con Stripe activo, el pago demo queda deshabilitado (nadie puede
+      // marcar un pedido como pagado sin pasar por Stripe)
+      if (stripeService.stripeEnabled()) {
+        res.status(400).json({ error: 'El pago demo está deshabilitado. Usa el checkout de Stripe.' });
+        return;
+      }
       const method = (req.body?.method as string) || 'demo';
       const quote = await quoteService.markQuotePaid(req.params.id as string, method);
       res.json({ success: true, paymentStatus: quote.paymentStatus, quoteId: quote.id });

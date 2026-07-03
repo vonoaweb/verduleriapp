@@ -9,6 +9,7 @@ export interface ApiVendor {
   whatsapp: string;
   coverImageUrl: string | null;
   status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  accessCode?: string | null; // codigo del bot (solo en /me/profile)
   rating: number;
   totalSales: number;
   categories: string[];

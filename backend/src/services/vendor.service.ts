@@ -59,6 +59,7 @@ export async function listVendors(filters: {
   const [vendors, total] = await Promise.all([
     prisma.vendor.findMany({
       where,
+      omit: { accessCode: true }, // el codigo del bot es privado
       include: {
         user: {
           select: { name: true, email: true, avatarUrl: true },
@@ -87,6 +88,7 @@ export async function listVendors(filters: {
 export async function getVendorById(id: string) {
   const vendor = await prisma.vendor.findUnique({
     where: { id },
+    omit: { accessCode: true }, // el codigo del bot es privado
     include: {
       user: {
         select: { name: true, email: true, avatarUrl: true },

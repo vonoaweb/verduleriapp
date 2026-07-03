@@ -57,6 +57,7 @@ model Vendor {
   whatsapp      String       // Numero de WhatsApp para cotizaciones
   coverImageUrl String?      @map("cover_image_url")
   status        VendorStatus @default(PENDING)
+  accessCode    String?      @unique @map("access_code") // Codigo para el modo productor del bot de WhatsApp
   rating        Float        @default(0)
   totalSales    Int          @default(0) @map("total_sales")
   categories    String[]     // Categorias que vende
@@ -148,6 +149,10 @@ model Quote {
   notes         String?
   // ─── Entrega / delivery ───
   deliveryAddress String?     @map("delivery_address") // número de casa + referencias
+  deliveryColonia String?     @map("delivery_colonia") // colonia validada contra zonas de servicio
+  deliveryZone    String?     @map("delivery_zone")    // nombre de la ruta de reparto (ZMG)
+  deliveryDate    String?     @map("delivery_date")    // día de entrega confirmado (ej. "jueves 2 de julio")
+  deliverySlot    String?     @map("delivery_slot")    // horario (ej. "9:00 a 13:00")
   latitude        Float?      // si el cliente comparte su ubicación
   longitude       Float?
   createdAt     DateTime      @default(now()) @map("created_at")
@@ -170,6 +175,9 @@ model BotConversation {
   messages     Json     @default("[]") // Historial [{role, text}]
   lastQuote    String?  @map("last_quote") // ID de la ultima cotizacion generada
   lastLocation Json?    @map("last_location") // Ultima ubicacion compartida {lat, lng, name, address}
+  // Modo productor: vendedor autenticado con su codigo de acceso
+  vendorId       String?   @map("vendor_id")
+  vendorAuthedAt DateTime? @map("vendor_authed_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

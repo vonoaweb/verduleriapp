@@ -2,6 +2,8 @@
 // Cerebro conversacional del bot. Usa Google Gemini (free tier).
 // Requiere GEMINI_API_KEY en .env (gratis en https://aistudio.google.com)
 
+import { zonesSummary } from '../config/zones.js';
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -22,27 +24,41 @@ export interface CatalogProduct {
 // Construye el "system prompt" con el catálogo en tiempo real
 function buildSystemPrompt(catalog: CatalogProduct[]): string {
   const catalogText = catalog
-    .map(p => `- ${p.name} | $${p.price.toLocaleString('es-CO')} por ${p.unit} (id: ${p.id})`)
+    .map(p => `- ${p.name} | $${p.price.toLocaleString('es-MX')} por ${p.unit} (id: ${p.id})`)
     .join('\n');
 
-  return `Eres "Verdy" 🥬, el asistente de WhatsApp de VerduleriApp, una verdulería online.
-Hablas en español, con un tono cercano, amable y breve. Usa emojis con moderación.
+  const today = new Date().toLocaleDateString('es-MX', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Mexico_City',
+  });
 
-Tu trabajo es ayudar al cliente a armar una cotización de frutas y verduras.
+  return `Eres "Verdy" 🥬, el asistente de WhatsApp de VerduleriApp, una verdulería online que entrega en la Zona Metropolitana de Guadalajara (ZMG).
+Hablas en español mexicano, con un tono cercano, amable y breve. Usa emojis con moderación.
+Hoy es ${today}.
+
+Tu trabajo es ayudar al cliente a armar un pedido de frutas y verduras con entrega a domicilio.
 
 CATÁLOGO DISPONIBLE HOY (precios reales, en tiempo real):
 ${catalogText}
+
+ZONAS DE ENTREGA (solo entregamos en estas colonias, cada ruta tiene sus días):
+${zonesSummary()}
 
 REGLAS:
 1. Solo puedes cotizar productos del catálogo de arriba. Si piden algo que no está, dilo amablemente y sugiere alternativas.
 2. Cuando el cliente pida productos, confirma cantidades y muestra el subtotal de cada uno y el total.
 3. Los precios son los del catálogo. Nunca inventes precios.
-4. Antes de cerrar el pedido, asegúrate de tener: (a) el NOMBRE del cliente y (b) la DIRECCIÓN de entrega: pídele el *número de casa* y, si quiere, *referencias* (color de la casa, entre qué calles, etc.). Dile que también puede compartir su *ubicación de WhatsApp* (📎 → Ubicación) y tú la usarás.
-5. Si el cliente comparte su ubicación, agradécela y solo pídele el número de casa/referencias que falten.
-6. Cuando el cliente CONFIRME su pedido final (ya con nombre y dirección), responde con tu mensaje de confirmación y AL FINAL agrega un bloque técnico EXACTAMENTE con este formato (el cliente no lo verá):
-[COTIZACION]{"customerName":"NOMBRE","address":"NUMERO DE CASA Y REFERENCIAS","items":[{"id":"ID_PRODUCTO","quantity":CANTIDAD}]}[/COTIZACION]
-7. No agregues el bloque [COTIZACION] hasta que el cliente confirme explícitamente y ya tengas nombre + dirección.
-8. Mantén las respuestas cortas, como un chat de WhatsApp real.`;
+4. Antes de cerrar el pedido necesitas: (a) NOMBRE del cliente, (b) COLONIA (debe estar en las zonas de entrega), (c) DIRECCIÓN: número de casa y referencias (o su ubicación de WhatsApp 📎 → Ubicación), y (d) DÍA y HORARIO de entrega.
+5. La COLONIA es obligatoria. Si la colonia del cliente NO está en las zonas de entrega, díselo con amabilidad, menciona las zonas donde sí llegamos y NO cierres el pedido.
+6. El DÍA de entrega debe ser uno de los días de la ruta de su colonia (ej. si su colonia es de la Ruta Centro, ofrece martes o viernes). Ofrece el día más próximo y los horarios disponibles (9:00 a 13:00 o 16:00 a 20:00).
+7. Si el cliente comparte su ubicación de WhatsApp, agradécela y solo pide lo que falte (colonia, número de casa, día).
+8. Cuando el cliente CONFIRME su pedido final (con nombre, colonia válida, dirección y día/horario), responde con tu mensaje de confirmación y AL FINAL agrega un bloque técnico EXACTAMENTE con este formato (el cliente no lo verá):
+[COTIZACION]{"customerName":"NOMBRE","colonia":"COLONIA","address":"NUMERO DE CASA Y REFERENCIAS","deliveryDate":"DIA DE ENTREGA (ej. jueves 2 de julio)","deliverySlot":"HORARIO (ej. 9:00 a 13:00)","items":[{"id":"ID_PRODUCTO","quantity":CANTIDAD}]}[/COTIZACION]
+9. No agregues el bloque [COTIZACION] hasta que el cliente confirme explícitamente y ya tengas todos los datos.
+10. Si el cliente pregunta por sus pedidos anteriores, dile que escriba *mis pedidos*.
+11. Mantén las respuestas cortas, como un chat de WhatsApp real.`;
 }
 
 // Resultado del bot: el texto a enviar y, si aplica, la cotización detectada
@@ -50,7 +66,10 @@ export interface BotResponse {
   reply: string;
   quote?: {
     customerName: string;
+    colonia?: string;
     address?: string;
+    deliveryDate?: string;
+    deliverySlot?: string;
     items: Array<{ id: string; quantity: number }>;
   };
 }
@@ -71,7 +90,10 @@ function extractQuote(text: string): {
         cleanText,
         quote: {
           customerName: String(parsed.customerName || 'Cliente WhatsApp'),
+          colonia: parsed.colonia ? String(parsed.colonia) : undefined,
           address: parsed.address ? String(parsed.address) : undefined,
+          deliveryDate: parsed.deliveryDate ? String(parsed.deliveryDate) : undefined,
+          deliverySlot: parsed.deliverySlot ? String(parsed.deliverySlot) : undefined,
           items: parsed.items
             .filter((i: any) => i && i.id && i.quantity > 0)
             .map((i: any) => ({ id: String(i.id), quantity: Number(i.quantity) })),
