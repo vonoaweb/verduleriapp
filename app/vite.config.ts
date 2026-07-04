@@ -5,7 +5,10 @@ import { inspectAttr } from 'plugin-inspect-react-code'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  // base absoluta: los assets se cargan desde /assets/... sin importar la
+  // profundidad de la ruta. Con './' (relativa) las rutas de 2+ segmentos
+  // como /pago/:id o /admin/cotizaciones cargaban mal el JS y salían en blanco.
+  base: '/',
   plugins: [inspectAttr(), react()],
   server: {
     port: 3000,
