@@ -10,6 +10,9 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  // Conexión directa (sin pooler) para migraciones / db push. Neon requiere
+  // la conexión directa para aplicar cambios de esquema (DDL).
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── USUARIOS ────────────────────────────────────
