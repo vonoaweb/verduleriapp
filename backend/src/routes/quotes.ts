@@ -6,6 +6,7 @@ import * as quoteService from '../services/quote.service.js';
 import { qs, qn } from '../utils/query.js';
 import { sendWhatsAppMessage, generateWhatsAppLink } from '../services/whatsapp.service.js';
 import * as stripeService from '../services/stripe.service.js';
+import QRCode from 'qrcode';
 
 const router = Router();
 
@@ -77,6 +78,31 @@ router.get(
       const quote = await quoteService.getQuoteForPayment(req.params.id as string);
       // stripeEnabled le dice al frontend si mostrar Stripe o el checkout demo
       res.json({ ...quote, stripeEnabled: stripeService.stripeEnabled() });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// GET /api/quotes/:id/qr.png — Código QR del pedido (para etiquetar paquetes)
+// Se imprime y pega en la caja: al escanearlo abre la página del pedido con
+// el nombre del cliente, los productos y el estado de pago.
+router.get(
+  '/:id/qr.png',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Valida que el pedido exista (404 si no)
+      const quote = await quoteService.getQuoteForPayment(req.params.id as string);
+      const frontendUrl = process.env.FRONTEND_URL || 'https://verduleriapp.vercel.app';
+      const png = await QRCode.toBuffer(`${frontendUrl}/pago/${quote.id}`, {
+        width: 380,
+        margin: 1,
+        color: { dark: '#1B4332', light: '#FFFFFF' },
+      });
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `inline; filename="pedido-${quote.id}.png"`);
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // el QR de un pedido no cambia
+      res.send(png);
     } catch (error) {
       next(error);
     }

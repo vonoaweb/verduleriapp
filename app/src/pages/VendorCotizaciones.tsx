@@ -160,7 +160,7 @@ function QuoteCard({
         <div className="flex flex-col sm:flex-row gap-2 mt-4">
           <a
             href={`https://wa.me/${vendorWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-              `Hola ${quote.customerName}, vi tu solicitud de cotizacion en VerduleriApp. ¿En que puedo ayudarte?`
+              `Hola ${quote.customerName}, vi tu solicitud de cotizacion en Kampo. ¿En que puedo ayudarte?`
             )}`}
             target="_blank"
             rel="noopener noreferrer"

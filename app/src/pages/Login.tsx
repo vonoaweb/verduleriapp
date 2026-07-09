@@ -49,14 +49,14 @@ export default function Login() {
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2">
             <Leaf className="w-8 h-8 text-[#2D6A4F]" />
-            <span className="font-display text-2xl font-bold text-[#2D6A4F]">VerduleriApp</span>
+            <span className="font-display text-2xl font-bold text-[#2D6A4F]">Kampo</span>
           </Link>
           <h1 className="font-display text-2xl font-bold text-[#2B3A29] mt-4">
             {mode === 'login' ? 'Inicia sesión' : 'Crea tu cuenta'}
           </h1>
           <p className="text-sm text-[#5C6F5A] mt-1">
             {mode === 'login'
-              ? 'Accede a tu cuenta de VerduleriApp'
+              ? 'Accede a tu cuenta de Kampo'
               : 'Regístrate para comprar o vender'}
           </p>
         </div>

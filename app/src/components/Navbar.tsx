@@ -54,7 +54,7 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2 group">
           <Leaf className="w-7 h-7 text-[#2D6A4F] transition-transform group-hover:rotate-[-12deg]" />
           <span className="font-display text-[22px] font-bold text-[#2D6A4F]">
-            VerduleriApp
+            Kampo
           </span>
         </Link>
 

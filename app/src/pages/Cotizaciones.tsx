@@ -12,9 +12,12 @@ import {
   Calendar,
   ShoppingBag,
   ExternalLink,
+  QrCode,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { quotesApi, type ApiQuote } from '@/api/quotes';
+import { coloniaColor } from '@/lib/coloniaColors';
+import { apiBaseUrl } from '@/api/client';
 
 type QStatus = 'PENDING' | 'RESPONDED' | 'COMPLETED' | 'CANCELLED';
 
@@ -48,6 +51,7 @@ export default function Cotizaciones() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'all' | QStatus>('all');
   const [search, setSearch] = useState('');
+  const [coloniaFilter, setColoniaFilter] = useState('all');
 
   useEffect(() => {
     quotesApi.list({ limit: 100 })
@@ -56,9 +60,19 @@ export default function Cotizaciones() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Colonias/cotos/torres presentes en los pedidos (para el filtro)
+  const colonias = useMemo(() => {
+    const set = new Set<string>();
+    quotes.forEach((q) => {
+      if (q.deliveryColonia) set.add(q.deliveryColonia);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [quotes]);
+
   const filtered = useMemo(() => {
     let list = quotes;
     if (activeFilter !== 'all') list = list.filter((q) => q.status === activeFilter);
+    if (coloniaFilter !== 'all') list = list.filter((q) => q.deliveryColonia === coloniaFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -67,8 +81,12 @@ export default function Cotizaciones() {
           qt.customerPhone.includes(q)
       );
     }
-    return list;
-  }, [quotes, activeFilter, search]);
+    // Agrupar visualmente: ordena por colonia para que los pedidos del mismo
+    // coto/torre queden juntos al armar la ruta
+    return [...list].sort((a, b) =>
+      (a.deliveryColonia || 'zzz').localeCompare(b.deliveryColonia || 'zzz', 'es'),
+    );
+  }, [quotes, activeFilter, coloniaFilter, search]);
 
   const handleUpdateStatus = async (id: string, status: QStatus) => {
     try {
@@ -114,6 +132,19 @@ export default function Cotizaciones() {
             className="w-full pl-11 pr-4 py-2.5 bg-white border border-[#D9E2D7] rounded-xl text-sm text-[#2B3A29] placeholder:text-[#95A893] focus:outline-none focus:border-[#2D6A4F] focus:ring-[3px] focus:ring-[#2D6A4F]/15 transition-all"
           />
         </div>
+        {colonias.length > 0 && (
+          <select
+            value={coloniaFilter}
+            onChange={(e) => setColoniaFilter(e.target.value)}
+            aria-label="Filtrar por coto, torre o colonia"
+            className="px-4 py-2.5 bg-white border border-[#D9E2D7] rounded-xl text-sm text-[#2B3A29] focus:outline-none focus:border-[#2D6A4F] focus:ring-[3px] focus:ring-[#2D6A4F]/15 transition-all"
+          >
+            <option value="all">🏘️ Todas las colonias</option>
+            {colonias.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Status tabs */}
@@ -179,7 +210,16 @@ export default function Cotizaciones() {
                               <span className="text-xs text-[#95A893]">{q.customerPhone}</span>
                             </div>
                             {q.deliveryColonia && (
-                              <p className="text-xs text-[#5C6F5A] mt-0.5">🏘️ {q.deliveryColonia}{q.deliveryZone ? ` · ${q.deliveryZone}` : ''}</p>
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold mt-1 border"
+                                style={{
+                                  backgroundColor: coloniaColor(q.deliveryColonia).bg,
+                                  color: coloniaColor(q.deliveryColonia).text,
+                                  borderColor: coloniaColor(q.deliveryColonia).border,
+                                }}
+                              >
+                                🏘️ {q.deliveryColonia}
+                              </span>
                             )}
                             {q.deliveryAddress && (
                               <p className="text-xs text-[#5C6F5A] mt-0.5">🏠 {q.deliveryAddress}</p>
@@ -243,7 +283,17 @@ export default function Cotizaciones() {
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-center gap-1.5">
                           <a
-                            href={`https://wa.me/${vendorWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${q.customerName}, sobre tu cotizacion en VerduleriApp...`)}`}
+                            href={`${apiBaseUrl}/quotes/${q.id}/qr.png`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="QR del pedido — imprímelo y pégalo en el paquete"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#D9E2D7] text-[#5C6F5A] text-xs font-medium hover:bg-[#F1F3F0] transition-colors"
+                          >
+                            <QrCode className="w-3 h-3" />
+                            QR
+                          </a>
+                          <a
+                            href={`https://wa.me/${vendorWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${q.customerName}, sobre tu cotizacion en Kampo...`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366] text-white text-xs font-medium hover:bg-[#128C7E] transition-colors"

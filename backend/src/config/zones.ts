@@ -1,78 +1,77 @@
-// ─── Zonas de servicio — ZMG (Guadalajara) ───────
-// Rutas de reparto con las colonias donde entregamos.
-// Para agregar/quitar colonias solo edita este archivo.
+// ─── Zonas de servicio — Kampo (ZMG) ─────────────
+// UNA sola ruta por ahora (pedido del cliente, 8-jul-2026): cotos y torres
+// de la zona Puerta de Hierro / Andares. Entrega los JUEVES por la mañana;
+// corte de pedidos los miércoles a las 7:00 pm.
+// Para agregar/quitar cotos o torres solo edita este archivo.
 
 export interface DeliveryZone {
   id: string;
   name: string;         // Nombre de la ruta
   days: string[];       // Días de reparto de esta ruta
   slots: string[];      // Horarios disponibles
-  colonias: string[];   // Colonias cubiertas
+  colonias: string[];   // Cotos / torres / colonias cubiertos
 }
 
 export const DELIVERY_ZONES: DeliveryZone[] = [
   {
-    id: 'norte',
-    name: 'Ruta Norte — Zapopan / Andares',
-    days: ['lunes', 'jueves'],
-    slots: ['9:00 a 13:00', '16:00 a 20:00'],
+    id: 'ruta1',
+    name: 'Ruta 1 — Puerta de Hierro / Andares',
+    days: ['jueves'],
+    slots: ['9:00 a 13:00 (mañana)'],
     colonias: [
-      'Puerta de Hierro',
-      'Andares',
-      'Valle Real',
-      'Royal Country',
-      'Solares',
-      'Virreyes',
-      'Puerta Plata',
-      'Colinas de San Javier',
-      'Lomas del Valle',
-      'Cumbres',
-      'Seattle',
-      'Country Club',
-    ],
-  },
-  {
-    id: 'centro',
-    name: 'Ruta Centro — Guadalajara Poniente',
-    days: ['martes', 'viernes'],
-    slots: ['9:00 a 13:00', '16:00 a 20:00'],
-    colonias: [
-      'Providencia',
-      'Monraz',
-      'Italia Providencia',
-      'Ladrón de Guevara',
-      'Americana',
-      'Lafayette',
-      'Obrera Centro',
-      'Arcos Vallarta',
-      'Vallarta Norte',
-      'Vallarta Poniente',
-      'Jardines del Bosque',
-      'Moderna',
-      'Chapultepec Country',
-    ],
-  },
-  {
-    id: 'sur',
-    name: 'Ruta Sur — Chapalita / Bugambilias',
-    days: ['miércoles', 'sábado'],
-    slots: ['9:00 a 13:00', '16:00 a 20:00'],
-    colonias: [
-      'Chapalita',
-      'Jardines de San Ignacio',
-      'Ciudad del Sol',
-      'La Calma',
-      'Las Fuentes',
-      'La Estancia',
-      'Rinconada Santa Rita',
-      'Ciudad Bugambilias',
-      'El Palomar',
-      'Jardines de La Patria',
-      'Paseos del Sol',
-      'Residencial Victoria',
+      'Puerta del Bosque',
+      'Puerta Aqua',
+      'West Point',
+      'Villa La Cima',
+      'Puerta del Roble',
+      'Alcázar Oriente',
+      'Alcázar Poniente',
+      'Puerta Las Lomas',
+      'Bosque de los Lagos',
+      'Bosque de las Lomas',
+      'Lomas Acueducto',
+      'Abadía',
+      'Torre Titanium',
+      'Legacy',
+      'Hyatt',
+      'Landmark',
+      'Ceiba',
     ],
   },
 ];
+
+// ─── Próxima entrega (jueves) y corte (miércoles 7 pm) ──
+// Regla del cliente: última orden miércoles 7:00 pm → se entrega el jueves.
+// Una orden del miércoles 7:01 pm en adelante se va al jueves de la semana siguiente.
+export interface NextDelivery {
+  dateLabel: string;   // ej. "jueves 9 de julio"
+  slot: string;        // ej. "9:00 a 13:00 (mañana)"
+  cutoffLabel: string; // ej. "miércoles 8 de julio a las 7:00 pm"
+}
+
+export function nextDeliveryInfo(base: Date = new Date()): NextDelivery {
+  // Hora actual en Guadalajara
+  const mx = new Date(base.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  const day = mx.getDay(); // 0=dom, 3=mié, 4=jue
+
+  let daysUntilThu = (4 - day + 7) % 7;
+  if (daysUntilThu === 0) daysUntilThu = 7;           // hoy es jueves → el corte ya pasó, siguiente jueves
+  if (day === 3 && mx.getHours() >= 19) daysUntilThu = 8; // miércoles después de las 7 pm → jueves de la otra semana
+
+  const delivery = new Date(mx);
+  delivery.setDate(mx.getDate() + daysUntilThu);
+  const cutoff = new Date(delivery);
+  cutoff.setDate(delivery.getDate() - 1); // miércoles anterior
+
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  return {
+    dateLabel: fmt(delivery),
+    slot: DELIVERY_ZONES[0].slots[0],
+    cutoffLabel: `${fmt(cutoff)} a las 7:00 pm`,
+  };
+}
 
 // Normaliza texto para comparar: minúsculas, sin acentos, sin espacios extra
 function normalize(s: string): string {
@@ -85,7 +84,7 @@ function normalize(s: string): string {
     .trim();
 }
 
-// Busca la zona a la que pertenece una colonia (tolerante a acentos y texto extra)
+// Busca la zona a la que pertenece un coto/torre/colonia (tolerante a acentos y texto extra)
 export function findZoneByColonia(input: string): { zone: DeliveryZone; colonia: string } | null {
   const text = normalize(input);
   if (!text) return null;
@@ -103,7 +102,7 @@ export function findZoneByColonia(input: string): { zone: DeliveryZone; colonia:
 // Texto con todas las zonas (para el prompt del bot y mensajes de fuera de zona)
 export function zonesSummary(): string {
   return DELIVERY_ZONES.map(z =>
-    `• ${z.name} (entregas ${z.days.join(' y ')}, horarios ${z.slots.join(' o ')}):\n  ${z.colonias.join(', ')}`,
+    `• ${z.name} (entrega ${z.days.join(' y ')} ${z.slots.join(' o ')}):\n  ${z.colonias.join(', ')}`,
   ).join('\n');
 }
 
@@ -112,8 +111,10 @@ export function outOfZoneMessage(colonia?: string): string {
   const intro = colonia
     ? `😔 Lo sentimos, por ahora *no llegamos a ${colonia}*.`
     : '😔 Lo sentimos, por ahora no llegamos a esa zona.';
-  const zoneLines = DELIVERY_ZONES.map(
-    z => `📍 *${z.name}* (${z.days.join(' y ')}): ${z.colonias.slice(0, 6).join(', ')}…`,
-  ).join('\n');
-  return `${intro}\n\nEstas son nuestras zonas de reparto en la ZMG:\n${zoneLines}\n\nSi tu colonia está cerca de alguna, escríbenos y lo revisamos 💚`;
+  const z = DELIVERY_ZONES[0];
+  return (
+    `${intro}\n\nPor ahora entregamos los *jueves por la mañana* en la zona Puerta de Hierro / Andares:\n` +
+    `📍 ${z.colonias.join(', ')}\n\n` +
+    `Si tu coto o torre está cerca de alguno, escríbenos y lo revisamos 💚`
+  );
 }

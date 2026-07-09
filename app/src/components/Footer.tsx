@@ -26,7 +26,7 @@ export default function Footer() {
             <Link to="/" className="flex items-center gap-2 mb-4">
               <Leaf className="w-6 h-6 text-[#52B788]" />
               <span className="font-display text-xl font-bold text-[#52B788]">
-                VerduleriApp
+                Kampo
               </span>
             </Link>
             <p className="font-body text-sm text-white/60 leading-relaxed mb-5">
@@ -129,7 +129,7 @@ export default function Footer() {
         {/* Copyright */}
         <div className="mt-12 pt-6 border-t border-white/10 text-center">
           <p className="font-body text-sm text-white/40">
-            &copy; 2025 VerduleriApp. Todos los derechos reservados.
+            &copy; 2026 Kampo. Todos los derechos reservados.
           </p>
         </div>
       </div>

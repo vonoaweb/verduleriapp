@@ -30,7 +30,7 @@ export function generateWhatsAppLink(data: QuoteMessage): string {
   ).join('\n');
 
   const message = [
-    `🥬 *Nueva Cotización - VerduleriApp*`,
+    `🥬 *Nueva Cotización - Kampo*`,
     ``,
     `📋 *Cotización #${data.quoteId}*`,
     `👤 Cliente: ${data.customerName}`,
@@ -42,7 +42,7 @@ export function generateWhatsAppLink(data: QuoteMessage): string {
     `💰 *Total: $${data.total.toLocaleString('es-CO')}*`,
     data.notes ? `\n📝 Nota: ${data.notes}` : '',
     ``,
-    `_Cotización generada por VerduleriApp_`,
+    `_Cotización generada por Kampo_`,
   ].filter(Boolean).join('\n');
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;

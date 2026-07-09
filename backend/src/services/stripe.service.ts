@@ -73,7 +73,7 @@ export async function createCheckoutSession(
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': STRIPE_CURRENCY,
     'line_items[0][price_data][unit_amount]': String(Math.round(quote.total * 100)),
-    'line_items[0][price_data][product_data][name]': `Pedido VerduleriApp`,
+    'line_items[0][price_data][product_data][name]': `Pedido Kampo`,
     'line_items[0][price_data][product_data][description]': description,
     success_url: `${frontendUrl}/pago/${quote.id}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${frontendUrl}/pago/${quote.id}`,

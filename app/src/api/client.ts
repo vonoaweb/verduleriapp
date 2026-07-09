@@ -3,6 +3,9 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+// URL base del API para construir enlaces directos (ej. imagen QR de un pedido)
+export const apiBaseUrl = API_URL;
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }

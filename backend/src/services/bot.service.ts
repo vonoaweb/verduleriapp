@@ -8,7 +8,7 @@ import { generateBotReply, type ChatMessage, type CatalogProduct } from './gemin
 import { createQuote } from './quote.service.js';
 import { sendTextMessage, sendDocumentMessage } from './whatsapp.service.js';
 import { tryHandleVendorMessage } from './vendor-bot.service.js';
-import { findZoneByColonia, outOfZoneMessage } from '../config/zones.js';
+import { findZoneByColonia, outOfZoneMessage, nextDeliveryInfo } from '../config/zones.js';
 
 const MAX_HISTORY = 20; // Cuántos mensajes recordar por conversación
 const OWNER_WHATSAPP = process.env.OWNER_WHATSAPP; // Número del dueño para avisarle de pedidos nuevos
@@ -193,6 +193,9 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
       replyText = outOfZoneMessage(botResponse.quote.colonia);
     } else {
       try {
+        // La fecha de entrega la fija el sistema (jueves con corte mié 7 pm),
+        // no la IA: así ningún pedido queda con un día equivocado.
+        const delivery = nextDeliveryInfo();
         const quote = await createQuote(
           {
             customerName: botResponse.quote.customerName,
@@ -201,8 +204,8 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
             deliveryAddress: botResponse.quote.address || undefined,
             deliveryColonia: zoneMatch?.colonia || botResponse.quote.colonia,
             deliveryZone: zoneMatch?.zone.name,
-            deliveryDate: botResponse.quote.deliveryDate,
-            deliverySlot: botResponse.quote.deliverySlot,
+            deliveryDate: delivery.dateLabel,
+            deliverySlot: delivery.slot,
             latitude: savedLocation?.latitude,
             longitude: savedLocation?.longitude,
             items: botResponse.quote.items.map(i => ({
@@ -227,7 +230,7 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
             )
             .join('\n');
           const lines = [
-            '🔔 *NUEVO PEDIDO - VerduleriApp*',
+            '🔔 *NUEVO PEDIDO - Kampo*',
             '',
             `👤 Cliente: ${quote.customerName}`,
             `📞 Teléfono: ${quote.customerPhone}`,

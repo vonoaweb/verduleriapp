@@ -33,7 +33,7 @@ function ProductCard({ product, index }: { product: ApiProduct; index: number })
   const [imgError, setImgError] = useState(false);
 
   const whatsappMsg = encodeURIComponent(
-    `Hola! Me interesa "${product.name}" a $${product.price.toLocaleString('es-CO')}/${product.unit} que vi en VerduleriApp. Me gustaria cotizar.`
+    `Hola! Me interesa "${product.name}" a $${product.price.toLocaleString('es-MX')}/${product.unit} que vi en Kampo. Me gustaria cotizar.`
   );
   const whatsappUrl = `https://wa.me/${(product.vendor?.whatsapp || '').replace(/[^0-9]/g, '')}?text=${whatsappMsg}`;
 

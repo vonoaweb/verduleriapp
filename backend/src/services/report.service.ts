@@ -94,7 +94,7 @@ export async function buildSalesReportPdf(vendorId: string, period: ReportPeriod
 
   // Encabezado
   doc.rect(0, 0, doc.page.width, 90).fill(green);
-  doc.fill('#FFFFFF').fontSize(22).font('Helvetica-Bold').text('VerduleriApp', 50, 28);
+  doc.fill('#FFFFFF').fontSize(22).font('Helvetica-Bold').text('Kampo', 50, 28);
   doc.fontSize(11).font('Helvetica').text('Reporte de ventas', 50, 58);
   doc.fill(dark);
 
@@ -150,7 +150,7 @@ export async function buildSalesReportPdf(vendorId: string, period: ReportPeriod
     .text(`Total: ${money(totalRevenue)}`, col.revenue - 100, y + 16, { width: 212, align: 'right' });
 
   doc.fontSize(8).font('Helvetica').fill('#95A893')
-    .text('Generado automáticamente por Verdy, el bot de VerduleriApp.', 50, doc.page.height - 60);
+    .text('Generado automáticamente por Verdy, el bot de Kampo.', 50, doc.page.height - 60);
 
   doc.end();
   return done;
