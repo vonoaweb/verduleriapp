@@ -8,6 +8,7 @@ import { generateBotReply, type ChatMessage, type CatalogProduct } from './gemin
 import { createQuote } from './quote.service.js';
 import { sendTextMessage, sendDocumentMessage } from './whatsapp.service.js';
 import { tryHandleVendorMessage } from './vendor-bot.service.js';
+import { isOwnerPhone, tryHandleOwnerMessage } from './admin-bot.service.js';
 import { findZoneByColonia, outOfZoneMessage, nextDeliveryInfo } from '../config/zones.js';
 
 const MAX_HISTORY = 20; // Cuántos mensajes recordar por conversación
@@ -109,6 +110,22 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
   const history: ChatMessage[] = Array.isArray(conversation?.messages)
     ? (conversation!.messages as unknown as ChatMessage[])
     : [];
+
+  // 1a. ¿Es el DUEÑO con un comando de gestión? (pedidos / ruta / pagos)
+  if (input.text && isOwnerPhone(phone)) {
+    const ownerReply = await tryHandleOwnerMessage(input.text);
+    if (ownerReply) {
+      history.push({ role: 'user', text: input.text });
+      history.push({ role: 'model', text: ownerReply });
+      await prisma.botConversation.upsert({
+        where: { phone },
+        create: { phone, messages: history.slice(-MAX_HISTORY) as unknown as object },
+        update: { messages: history.slice(-MAX_HISTORY) as unknown as object },
+      });
+      await sendTextMessage(phone, ownerReply);
+      return;
+    }
+  }
 
   // 1b. ¿Es un PRODUCTOR? (código de acceso o sesión de productor activa)
   if (input.text) {

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
   Search,
@@ -7,17 +6,19 @@ import {
   CheckCircle,
   MessageCircle,
   Ban,
-  User,
   Phone,
   Calendar,
   ShoppingBag,
-  ExternalLink,
   QrCode,
+  Truck,
+  MapPin,
+  Home,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { quotesApi, type ApiQuote } from '@/api/quotes';
 import { coloniaColor } from '@/lib/coloniaColors';
 import { apiBaseUrl } from '@/api/client';
+import { nextDeliveryInfo } from '@/lib/nextDelivery';
 
 type QStatus = 'PENDING' | 'RESPONDED' | 'COMPLETED' | 'CANCELLED';
 
@@ -37,14 +38,16 @@ const filterTabs: { label: string; value: 'all' | QStatus }[] = [
 ];
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('es-CO', {
+  return new Date(d).toLocaleDateString('es-MX', {
     day: 'numeric',
     month: 'short',
-    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
 }
+
+const SIN_COLONIA = 'Sin colonia';
+const money = (n: number) => `$${n.toLocaleString('es-MX')}`;
 
 export default function Cotizaciones() {
   const [quotes, setQuotes] = useState<ApiQuote[]>([]);
@@ -52,6 +55,8 @@ export default function Cotizaciones() {
   const [activeFilter, setActiveFilter] = useState<'all' | QStatus>('all');
   const [search, setSearch] = useState('');
   const [coloniaFilter, setColoniaFilter] = useState('all');
+
+  const delivery = useMemo(() => nextDeliveryInfo(), []);
 
   useEffect(() => {
     quotesApi.list({ limit: 100 })
@@ -81,12 +86,23 @@ export default function Cotizaciones() {
           qt.customerPhone.includes(q)
       );
     }
-    // Agrupar visualmente: ordena por colonia para que los pedidos del mismo
-    // coto/torre queden juntos al armar la ruta
-    return [...list].sort((a, b) =>
-      (a.deliveryColonia || 'zzz').localeCompare(b.deliveryColonia || 'zzz', 'es'),
-    );
+    return list;
   }, [quotes, activeFilter, coloniaFilter, search]);
+
+  // Pedidos agrupados por coto/torre/colonia (los sin colonia al final)
+  const groups = useMemo(() => {
+    const map = new Map<string, ApiQuote[]>();
+    for (const q of filtered) {
+      const key = q.deliveryColonia || SIN_COLONIA;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(q);
+    }
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === SIN_COLONIA) return 1;
+      if (b[0] === SIN_COLONIA) return -1;
+      return a[0].localeCompare(b[0], 'es');
+    });
+  }, [filtered]);
 
   const handleUpdateStatus = async (id: string, status: QStatus) => {
     try {
@@ -108,20 +124,36 @@ export default function Cotizaciones() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <h1 className="font-display text-3xl font-bold text-[#2B3A29]">
-            Gestion de Cotizaciones
+            Pedidos
           </h1>
           <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-[#D8F3DC] text-[#2D6A4F] text-sm font-bold self-start">
             {quotes.length}
           </span>
         </div>
-        <p className="text-[#5C6F5A] mt-1">Administra todas las cotizaciones del marketplace</p>
+        <p className="text-[#5C6F5A] mt-1">Organizados por coto y torre para armar la ruta de entrega</p>
       </div>
 
-      {/* Search + Filter Tabs */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      {/* Próxima entrega */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 bg-[#1B4332] text-white rounded-2xl px-5 py-4 mb-6">
+        <div className="flex items-center gap-2.5">
+          <Truck className="w-5 h-5 text-[#95D5B2]" />
+          <span className="text-sm">
+            Próxima entrega: <b className="font-semibold capitalize">{delivery.dateLabel}</b>, 9:00 a 13:00
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <Clock className="w-4 h-4 text-[#95D5B2]" />
+          <span className="text-sm text-white/80">
+            Corte de pedidos: <span className="capitalize">{delivery.cutoffLabel}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Buscador + filtro de colonia */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#95A893]" />
           <input
@@ -139,7 +171,7 @@ export default function Cotizaciones() {
             aria-label="Filtrar por coto, torre o colonia"
             className="px-4 py-2.5 bg-white border border-[#D9E2D7] rounded-xl text-sm text-[#2B3A29] focus:outline-none focus:border-[#2D6A4F] focus:ring-[3px] focus:ring-[#2D6A4F]/15 transition-all"
           >
-            <option value="all">🏘️ Todas las colonias</option>
+            <option value="all">Todos los cotos y torres</option>
             {colonias.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -147,7 +179,7 @@ export default function Cotizaciones() {
         )}
       </div>
 
-      {/* Status tabs */}
+      {/* Tabs de estado */}
       <div className="flex flex-wrap gap-2 mb-6">
         {filterTabs.map((tab) => (
           <button
@@ -170,95 +202,109 @@ export default function Cotizaciones() {
         ))}
       </div>
 
-      {/* Results */}
-      <p className="text-sm text-[#95A893] mb-4">{filtered.length} cotizaciones</p>
+      {/* Resumen */}
+      <p className="text-sm text-[#95A893] mb-4">
+        {filtered.length} {filtered.length === 1 ? 'pedido' : 'pedidos'}
+        {groups.length > 0 && ` · ${groups.length} ${groups.length === 1 ? 'zona' : 'zonas'}`}
+      </p>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-[#D9E2D7] shadow-product overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#F1F3F0]">
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#5C6F5A] uppercase tracking-wider">Cliente</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold text-[#5C6F5A] uppercase tracking-wider">Fecha</th>
-                <th className="text-center px-5 py-3 text-xs font-semibold text-[#5C6F5A] uppercase tracking-wider">Productos</th>
-                <th className="text-right px-5 py-3 text-xs font-semibold text-[#5C6F5A] uppercase tracking-wider">Total</th>
-                <th className="text-center px-5 py-3 text-xs font-semibold text-[#5C6F5A] uppercase tracking-wider">Estado</th>
-                <th className="text-center px-5 py-3 text-xs font-semibold text-[#5C6F5A] uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence>
-                {filtered.map((q, i) => {
-                  const st = statusConfig[q.status] || statusConfig.PENDING;
-                  const StatusIcon = st.icon;
-                  const vendorWhatsapp = q.items?.[0]?.vendor?.whatsapp || '';
-                  return (
-                    <tr
-                      key={q.id}
-                      className="border-t border-[#F1F3F0] hover:bg-[#FAFAF5] transition-colors"
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#D8F3DC] flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4 text-[#2D6A4F]" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-[#2B3A29]">{q.customerName}</p>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Phone className="w-3 h-3 text-[#95A893]" />
-                              <span className="text-xs text-[#95A893]">{q.customerPhone}</span>
-                            </div>
-                            {q.deliveryColonia && (
-                              <span
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold mt-1 border"
-                                style={{
-                                  backgroundColor: coloniaColor(q.deliveryColonia).bg,
-                                  color: coloniaColor(q.deliveryColonia).text,
-                                  borderColor: coloniaColor(q.deliveryColonia).border,
-                                }}
-                              >
-                                🏘️ {q.deliveryColonia}
-                              </span>
-                            )}
-                            {q.deliveryAddress && (
-                              <p className="text-xs text-[#5C6F5A] mt-0.5">🏠 {q.deliveryAddress}</p>
-                            )}
-                            {q.deliveryDate && (
-                              <p className="text-xs text-[#2D6A4F] font-medium mt-0.5">🚚 {q.deliveryDate}{q.deliverySlot ? `, ${q.deliverySlot}` : ''}</p>
-                            )}
-                            {q.latitude && q.longitude && (
-                              <a
-                                href={`https://maps.google.com/?q=${q.latitude},${q.longitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-[#2D6A4F] hover:underline mt-0.5 inline-block"
-                              >
-                                📍 Ver en mapa
-                              </a>
-                            )}
-                          </div>
+      {/* Grupos por colonia */}
+      {groups.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-[#D9E2D7] shadow-product text-center py-16">
+          <MessageSquare className="w-12 h-12 mx-auto text-[#D9E2D7] mb-3" />
+          <p className="text-sm text-[#95A893]">
+            {activeFilter === 'all' ? 'No hay pedidos aun' : `No hay pedidos en este filtro`}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {groups.map(([colonia, list]) => {
+            const isReal = colonia !== SIN_COLONIA;
+            const color = isReal
+              ? coloniaColor(colonia)
+              : { bg: '#F1F3F0', text: '#5C6F5A', border: '#D9E2D7' };
+            const subtotal = list.reduce((s, q) => s + q.total, 0);
+            const pagados = list.filter((q) => q.paymentStatus === 'PAID').length;
+            return (
+              <section key={colonia}>
+                {/* Encabezado del coto/torre */}
+                <div className="flex flex-wrap items-center gap-3 mb-2 px-1">
+                  <span
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold border"
+                    style={{ backgroundColor: color.bg, color: color.text, borderColor: color.border }}
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    {colonia}
+                  </span>
+                  <span className="text-xs text-[#95A893]">
+                    {list.length} {list.length === 1 ? 'pedido' : 'pedidos'} · {pagados} {pagados === 1 ? 'pagado' : 'pagados'}
+                  </span>
+                  <span className="ml-auto text-sm font-bold text-[#2B3A29]">{money(subtotal)}</span>
+                </div>
+
+                {/* Pedidos del grupo */}
+                <div
+                  className="bg-white rounded-2xl border border-[#D9E2D7] shadow-product overflow-hidden"
+                  style={{ borderLeft: `4px solid ${color.border}` }}
+                >
+                  {list.map((q, i) => {
+                    const st = statusConfig[q.status] || statusConfig.PENDING;
+                    const StatusIcon = st.icon;
+                    const vendorWhatsapp = q.items?.[0]?.vendor?.whatsapp || '';
+                    return (
+                      <div
+                        key={q.id}
+                        className={cn(
+                          'grid grid-cols-1 lg:grid-cols-[1.3fr_1.7fr_1fr_auto] gap-x-6 gap-y-3 px-5 py-4 hover:bg-[#FAFAF5] transition-colors',
+                          i > 0 && 'border-t border-[#F1F3F0]'
+                        )}
+                      >
+                        {/* Cliente */}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[#2B3A29] truncate">{q.customerName}</p>
+                          <p className="flex items-center gap-1.5 text-xs text-[#95A893] mt-1">
+                            <Phone className="w-3 h-3 shrink-0" /> {q.customerPhone}
+                          </p>
+                          <p className="flex items-center gap-1.5 text-xs text-[#95A893] mt-0.5">
+                            <Calendar className="w-3 h-3 shrink-0" /> Pedido: {formatDate(q.createdAt)}
+                          </p>
                         </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-1 text-xs text-[#5C6F5A]">
-                          <Calendar className="w-3.5 h-3.5 text-[#95A893]" />
-                          {formatDate(q.createdAt)}
+
+                        {/* Entrega */}
+                        <div className="min-w-0 text-xs space-y-1">
+                          {q.deliveryAddress && (
+                            <p className="flex items-start gap-1.5 text-[#5C6F5A]">
+                              <Home className="w-3 h-3 shrink-0 mt-0.5" />
+                              <span>{q.deliveryAddress}</span>
+                            </p>
+                          )}
+                          {q.deliveryDate && (
+                            <p className="flex items-center gap-1.5 font-medium text-[#2D6A4F]">
+                              <Truck className="w-3 h-3 shrink-0" />
+                              <span className="capitalize">{q.deliveryDate}{q.deliverySlot ? `, ${q.deliverySlot}` : ''}</span>
+                            </p>
+                          )}
+                          {q.latitude && q.longitude && (
+                            <a
+                              href={`https://maps.google.com/?q=${q.latitude},${q.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-[#2D6A4F] hover:underline"
+                            >
+                              <MapPin className="w-3 h-3 shrink-0" /> Ver en mapa
+                            </a>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1 text-sm text-[#5C6F5A]">
-                          <ShoppingBag className="w-3.5 h-3.5 text-[#95A893]" />
-                          {q.items.length}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <span className="text-sm font-bold text-[#E76F51]">
-                          ${q.total.toLocaleString('es-CO')}
-                        </span>
-                        <div className="mt-1">
+
+                        {/* Pedido: productos + total + pago */}
+                        <div>
+                          <p className="flex items-center gap-1.5 text-xs text-[#5C6F5A]">
+                            <ShoppingBag className="w-3 h-3 shrink-0" />
+                            {q.items.length} {q.items.length === 1 ? 'producto' : 'productos'}
+                          </p>
+                          <p className="text-base font-bold text-[#E76F51] mt-0.5">{money(q.total)}</p>
                           {q.paymentStatus === 'PAID' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#D8F3DC] text-[#2D6A4F]">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#D8F3DC] text-[#2D6A4F] mt-1">
                               ✓ Pagado
                             </span>
                           ) : (
@@ -267,76 +313,66 @@ export default function Cotizaciones() {
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Abrir página de pago"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#F4A261]/20 text-[#E76F51] hover:bg-[#F4A261]/30 transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#F4A261]/20 text-[#E76F51] hover:bg-[#F4A261]/30 transition-colors mt-1"
                             >
                               Cobrar →
                             </a>
                           )}
                         </div>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className={cn('inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium', st.className)}>
-                          <StatusIcon className="w-3.5 h-3.5" />
-                          {st.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <a
-                            href={`${apiBaseUrl}/quotes/${q.id}/qr.png`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="QR del pedido — imprímelo y pégalo en el paquete"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#D9E2D7] text-[#5C6F5A] text-xs font-medium hover:bg-[#F1F3F0] transition-colors"
-                          >
-                            <QrCode className="w-3 h-3" />
-                            QR
-                          </a>
-                          <a
-                            href={`https://wa.me/${vendorWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${q.customerName}, sobre tu cotizacion en Kampo...`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366] text-white text-xs font-medium hover:bg-[#128C7E] transition-colors"
-                          >
-                            <MessageCircle className="w-3 h-3" />
-                            WhatsApp
-                          </a>
-                          {q.status === 'PENDING' && (
-                            <button
-                              onClick={() => handleUpdateStatus(q.id, 'RESPONDED')}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-300 text-blue-600 text-xs font-medium hover:bg-blue-50 transition-colors"
+
+                        {/* Estado + acciones */}
+                        <div className="flex flex-row lg:flex-col items-start lg:items-end gap-2">
+                          <span className={cn('inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium', st.className)}>
+                            <StatusIcon className="w-3.5 h-3.5" />
+                            {st.label}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={`${apiBaseUrl}/quotes/${q.id}/qr.png`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="QR del pedido — imprímelo y pégalo en el paquete"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#D9E2D7] text-[#5C6F5A] hover:bg-[#F1F3F0] transition-colors"
                             >
-                              <MessageCircle className="w-3 h-3" />
-                              Responder
-                            </button>
-                          )}
-                          {q.status !== 'COMPLETED' && q.status !== 'CANCELLED' && (
-                            <button
-                              onClick={() => handleUpdateStatus(q.id, 'COMPLETED')}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#2D6A4F] text-[#2D6A4F] text-xs font-medium hover:bg-[#D8F3DC] transition-colors"
+                              <QrCode className="w-4 h-4" />
+                            </a>
+                            <a
+                              href={`https://wa.me/${vendorWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${q.customerName}, sobre tu pedido en Kampo...`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Contactar por WhatsApp"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#25D366] text-white hover:bg-[#128C7E] transition-colors"
                             >
-                              <CheckCircle className="w-3 h-3" />
-                              Completar
-                            </button>
-                          )}
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                            {q.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleUpdateStatus(q.id, 'RESPONDED')}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-blue-300 text-blue-600 text-xs font-medium hover:bg-blue-50 transition-colors"
+                              >
+                                Responder
+                              </button>
+                            )}
+                            {q.status !== 'COMPLETED' && q.status !== 'CANCELLED' && (
+                              <button
+                                onClick={() => handleUpdateStatus(q.id, 'COMPLETED')}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#2D6A4F] text-[#2D6A4F] text-xs font-medium hover:bg-[#D8F3DC] transition-colors"
+                              >
+                                <CheckCircle className="w-3 h-3" />
+                                Completar
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </AnimatePresence>
-            </tbody>
-          </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </div>
-        {filtered.length === 0 && (
-          <div className="text-center py-16">
-            <MessageSquare className="w-12 h-12 mx-auto text-[#D9E2D7] mb-3" />
-            <p className="text-sm text-[#95A893]">
-              {activeFilter === 'all' ? 'No hay cotizaciones aun' : `No hay cotizaciones ${statusConfig[activeFilter as QStatus].label.toLowerCase()}s`}
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

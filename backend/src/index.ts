@@ -111,7 +111,7 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`
   ╔══════════════════════════════════════════════╗
-  ║   🥬 VerduleriApp Backend                    ║
+  ║   🥬 Kampo Backend                           ║
   ║   🚀 Servidor corriendo en puerto ${PORT}       ║
   ║   📡 API: http://localhost:${PORT}/api         ║
   ║   ❤️  Health: http://localhost:${PORT}/api/health║
