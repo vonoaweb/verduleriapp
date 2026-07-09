@@ -141,13 +141,13 @@ export default function Cotizaciones() {
         <div className="flex items-center gap-2.5">
           <Truck className="w-5 h-5 text-[#95D5B2]" />
           <span className="text-sm">
-            Próxima entrega: <b className="font-semibold capitalize">{delivery.dateLabel}</b>, 9:00 a 13:00
+            Próxima entrega: <b className="font-semibold">{delivery.dateLabel}</b>, 9:00 a 13:00
           </span>
         </div>
         <div className="flex items-center gap-2.5">
           <Clock className="w-4 h-4 text-[#95D5B2]" />
           <span className="text-sm text-white/80">
-            Corte de pedidos: <span className="capitalize">{delivery.cutoffLabel}</span>
+            Corte de pedidos: {delivery.cutoffLabel}
           </span>
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function Cotizaciones() {
                           {q.deliveryDate && (
                             <p className="flex items-center gap-1.5 font-medium text-[#2D6A4F]">
                               <Truck className="w-3 h-3 shrink-0" />
-                              <span className="capitalize">{q.deliveryDate}{q.deliverySlot ? `, ${q.deliverySlot}` : ''}</span>
+                              <span>{q.deliveryDate}{q.deliverySlot ? `, ${q.deliverySlot}` : ''}</span>
                             </p>
                           )}
                           {q.latitude && q.longitude && (

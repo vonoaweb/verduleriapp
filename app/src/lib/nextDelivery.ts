@@ -18,8 +18,10 @@ export function nextDeliveryInfo(base: Date = new Date()): NextDelivery {
   const cutoff = new Date(delivery);
   cutoff.setDate(delivery.getDate() - 1);
 
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+  const fmt = (d: Date) => {
+    const s = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+    return s.charAt(0).toUpperCase() + s.slice(1); // "Jueves, 16 de julio"
+  };
 
   return {
     dateLabel: fmt(delivery),
