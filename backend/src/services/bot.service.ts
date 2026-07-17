@@ -84,9 +84,57 @@ interface IncomingLocation {
   name?: string;
   address?: string;
 }
+// Pedido que llega del carrito del catálogo nativo de WhatsApp (mensaje "order")
+interface IncomingOrderItem {
+  product_retailer_id: string;
+  quantity: string | number;
+  item_price?: string | number;
+  currency?: string;
+}
+interface IncomingOrder {
+  catalog_id?: string;
+  product_items: IncomingOrderItem[];
+  text?: string; // nota opcional que el cliente escribe en el carrito
+}
 interface IncomingInput {
   text?: string;
   location?: IncomingLocation;
+  order?: IncomingOrder;
+}
+
+// Convierte un pedido del carrito de WhatsApp en un mensaje de texto para que
+// el bot (Verdy) lo procese con todo su flujo: valida colonia, pide dirección,
+// guarda el pedido, avisa al dueño y manda el link de pago.
+async function orderToText(order: IncomingOrder): Promise<string | null> {
+  const items = order.product_items || [];
+  if (items.length === 0) return null;
+
+  // Mapear cada producto del catálogo de Meta a un producto de la app
+  const retailerIds = items.map(i => String(i.product_retailer_id));
+  const products = await prisma.product.findMany({
+    where: { metaRetailerId: { in: retailerIds } },
+    select: { name: true, unit: true, metaRetailerId: true },
+  });
+  const byRetailer = new Map(products.map(p => [p.metaRetailerId as string, p]));
+
+  const lines: string[] = [];
+  for (const it of items) {
+    const p = byRetailer.get(String(it.product_retailer_id));
+    const qty = Number(it.quantity) || 1;
+    if (p) {
+      lines.push(`${qty} ${p.unit} de ${p.name}`);
+    } else {
+      // No lo tenemos mapeado: lo incluimos con el precio que trae el carrito
+      const price = it.item_price ? ` (aprox. $${Number(it.item_price)})` : '';
+      lines.push(`${qty} x producto del catálogo${price}`);
+    }
+  }
+
+  const nota = order.text ? ` Nota: ${order.text}.` : '';
+  return (
+    `🛒 Hice un pedido desde el catálogo de WhatsApp: ${lines.join(', ')}.${nota} ` +
+    `Confírmame el total y ayúdame a completarlo con mis datos de entrega, por favor.`
+  );
 }
 
 const MAX_INPUT_LEN = 1000; // los mensajes de WhatsApp son cortos; cap contra payloads gigantes
@@ -102,7 +150,18 @@ function sanitizeUserText(text: string): string {
 
 // Procesa un mensaje entrante (texto o ubicación) y responde por WhatsApp
 export async function handleIncomingMessage(phone: string, input: IncomingInput): Promise<void> {
-  // 0. Sanear el texto entrante (anti prompt-injection)
+  // 0a. Pedido del carrito del catálogo de WhatsApp → lo convertimos en texto
+  // para que el bot lo procese con su flujo normal (cliente, no dueño/productor).
+  if (input.order) {
+    const orderText = await orderToText(input.order);
+    if (!orderText) {
+      await sendTextMessage(phone, '🤔 Recibí tu pedido del catálogo pero venía vacío. ¿Me dices qué necesitas?');
+      return;
+    }
+    input = { text: orderText }; // se procesa como mensaje de cliente
+  }
+
+  // 0b. Sanear el texto entrante (anti prompt-injection)
   if (input.text) input.text = sanitizeUserText(input.text);
 
   // 1. Cargar (o crear) la conversación

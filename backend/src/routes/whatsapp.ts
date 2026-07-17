@@ -53,6 +53,11 @@ router.post('/webhook', (req: Request, res: Response) => {
           handleIncomingMessage(phone, { location: msg.location }).catch(err =>
             console.error('Error procesando ubicación del bot:', err),
           );
+        } else if (msg.type === 'order' && msg.order) {
+          // El cliente hizo un pedido desde el carrito del catálogo de WhatsApp 🛒
+          handleIncomingMessage(phone, { order: msg.order }).catch(err =>
+            console.error('Error procesando pedido del carrito:', err),
+          );
         }
       }
     }
