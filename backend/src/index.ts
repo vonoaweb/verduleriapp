@@ -19,6 +19,7 @@ import reportRoutes from './routes/reports.js';
 import { verifyWebhookSignature } from './services/stripe.service.js';
 import { markQuotePaid } from './services/quote.service.js';
 import { ensureVendorAccessCodes } from './services/vendor-bot.service.js';
+import { sendCheckoutReminders } from './services/notify.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -121,6 +122,15 @@ app.listen(PORT, () => {
   ensureVendorAccessCodes().catch(err =>
     console.error('Error generando códigos de productor:', err),
   );
+
+  // Recordatorio de checkout: revisa cada 10 min si hay carritos sin pagar
+  // y le recuerda al cliente que complete el pago (una sola vez por pedido).
+  const REMINDER_INTERVAL_MIN = 10;
+  setInterval(() => {
+    sendCheckoutReminders().catch(err =>
+      console.error('Error enviando recordatorios de checkout:', err),
+    );
+  }, REMINDER_INTERVAL_MIN * 60 * 1000);
 });
 
 export default app;

@@ -65,20 +65,33 @@ export async function buildSalesReportPdf(vendorId: string, period: ReportPeriod
     orderBy: { quote: { createdAt: 'desc' } },
   });
 
-  // Agregado por producto
+  // Agregado por producto — SOLO lo PAGADO cuenta como venta.
+  // Lo no pagado se reporta aparte como "pendiente de cobro" para que no se
+  // confunda con ventas reales (pedido de Rodrigo, 8-jul-2026).
   const byProduct = new Map<string, { qty: number; unit: string; revenue: number }>();
-  let totalRevenue = 0;
   let paidRevenue = 0;
-  const quoteIds = new Set<string>();
+  let unpaidRevenue = 0;
+  const paidQuoteIds = new Set<string>();
+  const unpaidQuotes = new Map<string, { customerName: string; total: number }>();
+
   for (const it of items) {
-    const key = it.product.name;
-    const entry = byProduct.get(key) || { qty: 0, unit: it.unit, revenue: 0 };
-    entry.qty += it.quantity;
-    entry.revenue += it.quantity * it.price;
-    byProduct.set(key, entry);
-    totalRevenue += it.quantity * it.price;
-    if (it.quote.paymentStatus === 'PAID') paidRevenue += it.quantity * it.price;
-    quoteIds.add(it.quoteId);
+    const importe = it.quantity * it.price;
+    if (it.quote.paymentStatus === 'PAID') {
+      const key = it.product.name;
+      const entry = byProduct.get(key) || { qty: 0, unit: it.unit, revenue: 0 };
+      entry.qty += it.quantity;
+      entry.revenue += importe;
+      byProduct.set(key, entry);
+      paidRevenue += importe;
+      paidQuoteIds.add(it.quoteId);
+    } else {
+      unpaidRevenue += importe;
+      const prev = unpaidQuotes.get(it.quoteId);
+      unpaidQuotes.set(it.quoteId, {
+        customerName: it.quote.customerName,
+        total: (prev?.total || 0) + importe,
+      });
+    }
   }
 
   // ─── Generar el PDF ───
@@ -103,17 +116,21 @@ export async function buildSalesReportPdf(vendorId: string, period: ReportPeriod
     .text(`Periodo: ${PERIOD_LABEL[period]}  ·  Generado: ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`);
   doc.moveDown(1.5);
 
-  // Resumen
+  // Resumen — la VENTA es solo lo cobrado
   doc.fill(dark).fontSize(12).font('Helvetica-Bold').text('Resumen');
   doc.moveDown(0.3);
   doc.fontSize(10).font('Helvetica').fill(gray);
-  doc.text(`Pedidos con tus productos: ${quoteIds.size}`);
-  doc.text(`Ventas totales (cotizado): ${money(totalRevenue)}`);
-  doc.text(`Ventas pagadas: ${money(paidRevenue)}`);
+  doc.text(`Pedidos pagados: ${paidQuoteIds.size}`);
+  doc.moveDown(0.2);
+  doc.fontSize(13).font('Helvetica-Bold').fill(green)
+    .text(`Ventas cobradas: ${money(paidRevenue)}`);
+  doc.moveDown(0.2);
+  doc.fontSize(10).font('Helvetica').fill(gray)
+    .text('(solo se cuentan los pedidos con pago confirmado)');
   doc.moveDown(1);
 
-  // Tabla por producto
-  doc.fill(dark).fontSize(12).font('Helvetica-Bold').text('Ventas por producto');
+  // Tabla por producto (solo pagado)
+  doc.fill(dark).fontSize(12).font('Helvetica-Bold').text('Ventas cobradas por producto');
   doc.moveDown(0.5);
 
   const tableTop = doc.y;
@@ -128,7 +145,7 @@ export async function buildSalesReportPdf(vendorId: string, period: ReportPeriod
   let y = tableTop + 22;
   doc.font('Helvetica').fill(dark);
   if (byProduct.size === 0) {
-    doc.fontSize(10).fill(gray).text('Sin ventas en este periodo.', col.name, y);
+    doc.fontSize(10).fill(gray).text('Sin ventas cobradas en este periodo.', col.name, y);
     y += 20;
   }
   for (const [name, data] of [...byProduct.entries()].sort((a, b) => b[1].revenue - a[1].revenue)) {
@@ -144,10 +161,39 @@ export async function buildSalesReportPdf(vendorId: string, period: ReportPeriod
     y += 18;
   }
 
-  // Pie
+  // Total cobrado
   doc.moveTo(50, y + 8).lineTo(562, y + 8).strokeColor('#D9E2D7').stroke();
   doc.fontSize(11).font('Helvetica-Bold').fill(green)
-    .text(`Total: ${money(totalRevenue)}`, col.revenue - 100, y + 16, { width: 212, align: 'right' });
+    .text(`Total cobrado: ${money(paidRevenue)}`, col.revenue - 140, y + 16, { width: 252, align: 'right' });
+  y += 44;
+
+  // ─── Pendiente de cobro (NO es venta) ───
+  if (unpaidQuotes.size > 0) {
+    if (y > doc.page.height - 160) {
+      doc.addPage();
+      y = 50;
+    }
+    doc.fontSize(12).font('Helvetica-Bold').fill('#B26A00')
+      .text('Pendiente de cobro — NO cuenta como venta', 50, y);
+    y += 18;
+    doc.fontSize(9).font('Helvetica').fill(gray)
+      .text('Estos pedidos no se han pagado, por lo que no se mandan a preparar.', 50, y);
+    y += 18;
+
+    for (const [, q] of unpaidQuotes) {
+      if (y > doc.page.height - 80) {
+        doc.addPage();
+        y = 50;
+      }
+      doc.fontSize(9).fill(dark).text(q.customerName, col.name, y, { width: 220 });
+      doc.text(money(q.total), col.revenue, y);
+      y += 16;
+    }
+
+    doc.moveTo(50, y + 6).lineTo(562, y + 6).strokeColor('#F4A261').stroke();
+    doc.fontSize(10).font('Helvetica-Bold').fill('#B26A00')
+      .text(`Total pendiente: ${money(unpaidRevenue)}`, col.revenue - 140, y + 14, { width: 252, align: 'right' });
+  }
 
   doc.fontSize(8).font('Helvetica').fill('#95A893')
     .text('Generado automáticamente por Verdy, el bot de Kampo.', 50, doc.page.height - 60);

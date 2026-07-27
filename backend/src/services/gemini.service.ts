@@ -142,6 +142,78 @@ function extractQuote(text: string): {
   return { cleanText };
 }
 
+// ─── Intérprete conversacional del modo productor ──
+// El productor escribe en lenguaje natural ("cámbiale el precio a la piña a 18
+// pesos el kilo") y la IA lo traduce a una acción estructurada.
+export interface VendorIntent {
+  action: 'price' | 'pause' | 'activate' | 'list' | 'report' | 'help' | 'exit' | 'unknown';
+  product?: string;        // nombre del producto tal como lo dijo el productor
+  price?: number;          // para action = price
+  period?: 'hoy' | 'semana' | 'mes'; // para action = report
+}
+
+export async function interpretVendorCommand(
+  text: string,
+  productNames: string[],
+): Promise<VendorIntent> {
+  if (!GEMINI_API_KEY) return { action: 'unknown' };
+
+  const prompt = `Eres un intérprete de comandos para productores de una verdulería.
+El productor escribe en español mexicano coloquial. Traduce su mensaje a UNA acción.
+
+PRODUCTOS DEL PRODUCTOR: ${productNames.join(', ') || '(ninguno)'}
+
+ACCIONES POSIBLES:
+- "price": quiere cambiar el precio de un producto (necesita product y price)
+- "pause": quiere pausar/ocultar/quitar/desactivar un producto (necesita product)
+- "activate": quiere activar/publicar/prender/volver a poner un producto (necesita product)
+- "list": quiere ver su inventario, productos o precios
+- "report": quiere un reporte de ventas (period: hoy, semana o mes; default semana)
+- "help": pide ayuda o no sabe qué puede hacer
+- "exit": quiere salir del modo productor
+- "unknown": no se entiende o no es ninguna de las anteriores
+
+REGLAS:
+- El precio va en pesos por unidad. "18 pesos kilo" → price: 18.
+- El nombre del producto debe ser el del listado de arriba si coincide (aunque el productor lo escriba distinto o con falta de ortografía).
+- Responde SOLO con JSON válido, sin explicaciones ni formato markdown.
+
+Formato: {"action":"...","product":"...","price":0,"period":"..."}
+Omite los campos que no apliquen.
+
+Mensaje del productor: "${text.replace(/"/g, "'").slice(0, 300)}"`;
+
+  try {
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json' },
+      }),
+    });
+    if (!response.ok) {
+      console.error('Gemini (vendor intent) error:', response.status);
+      return { action: 'unknown' };
+    }
+    const data = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const raw = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    const action = String(parsed.action || 'unknown') as VendorIntent['action'];
+    return {
+      action,
+      product: parsed.product ? String(parsed.product).slice(0, 80) : undefined,
+      price: Number.isFinite(Number(parsed.price)) && Number(parsed.price) > 0 ? Number(parsed.price) : undefined,
+      period: ['hoy', 'semana', 'mes'].includes(parsed.period) ? parsed.period : undefined,
+    };
+  } catch (err) {
+    console.error('Error interpretando comando de productor:', err);
+    return { action: 'unknown' };
+  }
+}
+
 // Llama a Gemini con el historial y el catálogo
 export async function generateBotReply(
   history: ChatMessage[],

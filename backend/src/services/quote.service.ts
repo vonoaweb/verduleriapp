@@ -194,15 +194,23 @@ export async function markQuotePaid(quoteId: string, method = 'demo') {
   if (quote.paymentStatus === 'PAID') {
     return quote; // ya estaba pagado (idempotente)
   }
-  return prisma.quote.update({
+  const updated = await prisma.quote.update({
     where: { id: quoteId },
     data: {
       paymentStatus: 'PAID',
       paymentMethod: method,
       paidAt: new Date(),
-      status: 'COMPLETED',
+      status: 'RESPONDED', // pagado y en preparación (COMPLETED = ya entregado)
     },
   });
+
+  // Ahora sí: el pedido está pagado → se levanta y se avisa (regla del negocio).
+  // En segundo plano para no retrasar la respuesta del checkout.
+  const { notifyOwnerPaidOrder, notifyCustomerPaid } = await import('./notify.service.js');
+  notifyOwnerPaidOrder(quoteId).catch(e => console.error('notifyOwnerPaidOrder:', e));
+  notifyCustomerPaid(quoteId).catch(e => console.error('notifyCustomerPaid:', e));
+
+  return updated;
 }
 
 // ─── ACTUALIZAR ESTADO DE COTIZACIÓN ─────────────

@@ -151,6 +151,10 @@ model Quote {
   paymentStatus PaymentStatus @default(UNPAID) @map("payment_status")
   paymentMethod String?       @map("payment_method") // ej: "demo", "stripe", "mercadopago"
   paidAt        DateTime?     @map("paid_at")
+  // Recordatorio de checkout: cuando se le recordo al cliente que falta pagar
+  reminderSentAt DateTime?    @map("reminder_sent_at")
+  // Aviso al dueno: solo se manda cuando el pedido ya esta PAGADO
+  ownerNotifiedAt DateTime?   @map("owner_notified_at")
   total         Float         @default(0)
   notes         String?
   // ─── Entrega / delivery ───
@@ -184,6 +188,8 @@ model BotConversation {
   // Modo productor: vendedor autenticado con su codigo de acceso
   vendorId       String?   @map("vendor_id")
   vendorAuthedAt DateTime? @map("vendor_authed_at")
+  // Accion del productor esperando confirmacion ("si"/"no"), ej. cambio de precio
+  pendingAction  Json?     @map("pending_action")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

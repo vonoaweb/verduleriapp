@@ -3,6 +3,7 @@
 // cliente, consulta el catálogo en tiempo real, pasa por la IA (Gemini),
 // valida la zona de entrega, guarda la cotización y responde.
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { generateBotReply, type ChatMessage, type CatalogProduct } from './gemini.service.js';
 import { createQuote } from './quote.service.js';
@@ -199,11 +200,15 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
           messages: history.slice(-MAX_HISTORY) as unknown as object,
           vendorId: vendorResult.vendorId !== undefined ? vendorResult.vendorId : undefined,
           vendorAuthedAt: vendorResult.vendorAuthedAt !== undefined ? vendorResult.vendorAuthedAt : undefined,
+          pendingAction: (vendorResult.pendingAction as unknown as object) ?? undefined,
         },
         update: {
           messages: history.slice(-MAX_HISTORY) as unknown as object,
           ...(vendorResult.vendorId !== undefined ? { vendorId: vendorResult.vendorId } : {}),
           ...(vendorResult.vendorAuthedAt !== undefined ? { vendorAuthedAt: vendorResult.vendorAuthedAt } : {}),
+          ...(vendorResult.pendingAction !== undefined
+            ? { pendingAction: (vendorResult.pendingAction as unknown as object) ?? Prisma.DbNull }
+            : {}),
         },
       });
       await sendTextMessage(phone, vendorResult.reply);
@@ -297,43 +302,9 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
         lastQuoteId = quote.id;
         payLink = `${FRONTEND_URL}/pago/${quote.id}`; // link para que el cliente pague
 
-        // 5b. Avisar al DUEÑO por WhatsApp del nuevo pedido (además del panel)
-        if (OWNER_WHATSAPP) {
-          const itemLines = quote.items
-            .map(
-              (i, idx) =>
-                `${idx + 1}. ${i.product.name} - ${i.quantity} ${i.unit} x $${i.price.toLocaleString('es-MX')} = $${(i.quantity * i.price).toLocaleString('es-MX')}`,
-            )
-            .join('\n');
-          const lines = [
-            '🔔 *NUEVO PEDIDO - Kampo*',
-            '',
-            `👤 Cliente: ${quote.customerName}`,
-            `📞 Teléfono: ${quote.customerPhone}`,
-          ];
-          if (quote.deliveryColonia) {
-            lines.push(`🏘️ Colonia: ${quote.deliveryColonia}${quote.deliveryZone ? ` (${quote.deliveryZone})` : ''}`);
-          }
-          if (quote.deliveryAddress) lines.push(`🏠 Dirección: ${quote.deliveryAddress}`);
-          if (quote.deliveryDate) {
-            lines.push(`🚚 Entrega: ${quote.deliveryDate}${quote.deliverySlot ? `, ${quote.deliverySlot}` : ''}`);
-          }
-          if (quote.latitude && quote.longitude) {
-            lines.push(`📍 Mapa: https://maps.google.com/?q=${quote.latitude},${quote.longitude}`);
-          }
-          lines.push(
-            '',
-            '🛒 *Productos:*',
-            itemLines,
-            '',
-            `💰 *Total: $${quote.total.toLocaleString('es-MX')}*`,
-            '',
-            `_Pedido #${quote.id} · revísalo también en el panel_`,
-          );
-          await sendTextMessage(OWNER_WHATSAPP, lines.join('\n')).catch(e =>
-            console.error('Error avisando al dueño:', e),
-          );
-        }
+        // 5b. NO se avisa al dueño todavía: el pedido solo se levanta cuando
+        // está PAGADO (regla del negocio). El aviso sale desde markQuotePaid().
+        console.log(`🧺 Carrito creado (pendiente de pago): ${quote.id} — ${quote.customerName}`);
       } catch (err) {
         console.error('Error guardando cotización del bot:', err);
       }
@@ -359,9 +330,10 @@ export async function handleIncomingMessage(phone: string, input: IncomingInput)
     },
   });
 
-  // 8. Responder al cliente por WhatsApp (con link de pago si se creó el pedido)
+  // 8. Responder al cliente. Si hay carrito, dejar MUY claro que el pedido
+  // solo queda apartado cuando paga (no se levanta un pedido sin pagar).
   const customerReply = payLink
-    ? `${replyText}\n\n💳 Paga tu pedido aquí:\n${payLink}`
+    ? `${replyText}\n\n💳 *Para apartar tu pedido, complétalo aquí:*\n${payLink}\n\n_Tu pedido se confirma cuando se registra el pago. Si no lo completas, no lo mandamos a preparar._`
     : replyText;
   await sendTextMessage(phone, customerReply);
 }

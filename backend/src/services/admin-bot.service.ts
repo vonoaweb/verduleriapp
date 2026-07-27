@@ -97,20 +97,29 @@ export async function tryHandleOwnerMessage(text: string): Promise<string | null
 
   const header = `🚚 *Entrega: ${delivery.dateLabel}, 9:00 a 13:00*\n_Corte: ${delivery.cutoffLabel}_\n`;
 
-  // ── ruta / resumen: conteo por coto ──
+  // ── ruta / resumen: SOLO lo pagado va a la ruta ──
   if (t === 'ruta' || t === 'resumen') {
-    const lines = [...groups.entries()].map(([colonia, list]) => {
+    const paidGroups = groupByColonia(paid);
+    const lines = [...paidGroups.entries()].map(([colonia, list]) => {
       const sub = list.reduce((s, q) => s + q.total, 0);
-      const pagados = list.filter(q => q.paymentStatus === 'PAID').length;
-      return `📍 *${colonia}*: ${list.length} ${list.length === 1 ? 'pedido' : 'pedidos'} · ${money(sub)} · ${pagados}/${list.length} pagados`;
+      return `📍 *${colonia}*: ${list.length} ${list.length === 1 ? 'pedido' : 'pedidos'} · ${money(sub)}`;
     });
-    return [
+    const pendientes = quotes.filter(q => q.paymentStatus !== 'PAID');
+    const out = [
       header,
-      '🗺️ *Resumen de la ruta:*',
-      ...lines,
+      '🗺️ *Ruta a entregar (solo pagados):*',
+      ...(lines.length > 0 ? lines : ['  (todavía no hay pedidos pagados)']),
       '',
-      `*Total: ${quotes.length} pedidos · ${money(total)}* (${paid.length} pagados)`,
-    ].join('\n');
+      `*Total a entregar: ${paid.length} pedidos · ${money(paid.reduce((s, q) => s + q.total, 0))}*`,
+    ];
+    if (pendientes.length > 0) {
+      out.push(
+        '',
+        `⏳ *No van a la ruta* (sin pagar): ${pendientes.length} · ${money(pendientes.reduce((s, q) => s + q.total, 0))}`,
+        '_Escribe *pagos* para ver a quién falta cobrarle._',
+      );
+    }
+    return out.join('\n');
   }
 
   // ── pagos: quién pagó y quién no ──
@@ -139,13 +148,14 @@ export async function tryHandleOwnerMessage(text: string): Promise<string | null
     return `📍 *${colonia}* (${list.length} · ${money(sub)})\n${rows.join('\n')}`;
   });
 
+  const pendientes = quotes.filter(q => q.paymentStatus !== 'PAID');
   return [
     header,
     '📦 *Pedidos por coto/torre:*',
     '',
     blocks.join('\n\n'),
     '',
-    `*Total: ${quotes.length} pedidos · ${money(total)}* (${paid.length} pagados)`,
-    '_✅ pagado · ⏳ por cobrar_',
+    `✅ *A entregar (pagados): ${paid.length} · ${money(paid.reduce((s, q) => s + q.total, 0))}*`,
+    `⏳ Por cobrar (no se preparan): ${pendientes.length} · ${money(pendientes.reduce((s, q) => s + q.total, 0))}`,
   ].join('\n');
 }
