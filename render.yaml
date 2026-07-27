@@ -30,6 +30,14 @@ services:
         sync: false
       - key: STRIPE_CURRENCY
         value: mxn
+      # ─── Catálogo de Meta/WhatsApp (el ícono 🛍️) ───
+      # Mantiene sincronizados precio y disponibilidad con la app.
+      - key: META_CATALOG_ID
+        value: "1016476710999609"
+      # Token con permiso catalog_management. Si no se pone, se intenta con
+      # WHATSAPP_ACCESS_TOKEN (puede no tener ese permiso).
+      - key: META_CATALOG_TOKEN
+        sync: false
       # ─── Seguridad del webhook de WhatsApp ───
       # App secret de Meta (Configuración de la app → Básico). Al ponerlo,
       # el bot rechaza mensajes que no vengan firmados por Meta.

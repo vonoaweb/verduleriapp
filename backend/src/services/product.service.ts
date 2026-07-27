@@ -147,6 +147,12 @@ export async function updateProduct(
     },
   });
 
+  // Reflejar precio/disponibilidad en el catálogo 🛍️ de WhatsApp (si aplica)
+  if (input.price !== undefined || input.status !== undefined) {
+    const { syncProductToMeta } = await import('./meta-catalog.service.js');
+    syncProductToMeta(productId).catch(e => console.warn('syncProductToMeta:', e));
+  }
+
   return updated;
 }
 

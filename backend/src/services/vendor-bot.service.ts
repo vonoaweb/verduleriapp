@@ -7,6 +7,7 @@
 import { prisma } from '../config/prisma.js';
 import { makeReportToken, type ReportPeriod } from './report.service.js';
 import { interpretVendorCommand } from './gemini.service.js';
+import { syncProductToMeta } from './meta-catalog.service.js';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'https://verduleriapp-api.onrender.com';
 const VENDOR_SESSION_HOURS = 24; // la sesión de productor expira a las 24 h
@@ -111,6 +112,8 @@ function confirmText(a: PendingAction): string {
 async function applyAction(a: PendingAction): Promise<string> {
   if (a.type === 'price') {
     await prisma.product.update({ where: { id: a.productId }, data: { price: a.newPrice as number } });
+    // Reflejarlo también en el catálogo 🛍️ de WhatsApp (si está configurado)
+    await syncProductToMeta(a.productId);
     return (
       `✅ Listo. *${a.productName}* ahora cuesta *${money(a.newPrice || 0)} / ${a.unit}* ` +
       `(antes ${money(a.oldPrice || 0)}).\n\nYa está actualizado en el catálogo y el bot lo cotiza con el precio nuevo.`
@@ -118,9 +121,11 @@ async function applyAction(a: PendingAction): Promise<string> {
   }
   if (a.type === 'pause') {
     await prisma.product.update({ where: { id: a.productId }, data: { status: 'INACTIVE' } });
+    await syncProductToMeta(a.productId);
     return `⏸️ Listo. *${a.productName}* quedó pausado: ya no aparece en el catálogo.`;
   }
   await prisma.product.update({ where: { id: a.productId }, data: { status: 'ACTIVE' } });
+  await syncProductToMeta(a.productId);
   return `🟢 Listo. *${a.productName}* está de nuevo disponible en el catálogo.`;
 }
 
